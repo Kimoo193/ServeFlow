@@ -20,6 +20,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddInfrastructure();
 
 builder.Services.AddExceptionHandler<InvalidTenantClaimsExceptionHandler>();
+builder.Services.AddExceptionHandler<ConcurrencyExceptionHandler>();
+builder.Services.AddExceptionHandler<UniqueViolationExceptionHandler>();
 builder.Services.AddProblemDetails();
 
 builder.Services
@@ -140,6 +142,8 @@ app.MapGet("/branches", async (PosDbContext dbContext, CancellationToken cancell
 .RequireAuthorization();
 
 app.MapMenuEndpoints();
+app.MapDiningAreaEndpoints();
+app.MapOrderEndpoints();
 
 app.Run();
 

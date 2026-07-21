@@ -19,9 +19,16 @@ $$;
 
 GRANT CONNECT ON DATABASE pos TO pos_app;
 GRANT USAGE ON SCHEMA public TO pos_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON tenants, branches, branch_settings, users TO pos_app;
 
--- So each future migration's new tables are granted automatically, without a
--- manual grant statement added to every slice's migration.
+-- Covers every table that already exists at the moment this script runs (which is
+-- every slice's tables, since migrations always run before this script — see
+-- PostgresRlsFixture). ALTER DEFAULT PRIVILEGES below is NOT retroactive: it only
+-- applies to tables created after it executes, so relying on it alone here would
+-- silently miss every table that existed before this script's first run.
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO pos_app;
+
+-- Covers tables from any future migration applied AFTER this script has already run
+-- once (e.g. a real deployment: role bootstrapped once, then new slices' migrations
+-- applied over time) — so no per-slice edit to this file is needed either way.
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO pos_app;

@@ -20,6 +20,11 @@ public sealed class PosDbContext(DbContextOptions<PosDbContext> options) : DbCon
     public DbSet<Combo> Combos => Set<Combo>();
     public DbSet<ComboItem> ComboItems => Set<ComboItem>();
     public DbSet<Station> Stations => Set<Station>();
+    public DbSet<Section> Sections => Set<Section>();
+    public DbSet<DiningTable> DiningTables => Set<DiningTable>();
+    public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderLine> OrderLines => Set<OrderLine>();
+    public DbSet<OrderLineModifier> OrderLineModifiers => Set<OrderLineModifier>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
