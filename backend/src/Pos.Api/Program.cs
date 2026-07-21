@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Pos.Api;
 using Pos.Api.Contracts;
 using Pos.Api.ExceptionHandling;
 using Pos.Application.Common;
@@ -137,6 +138,8 @@ app.MapGet("/branches", async (PosDbContext dbContext, CancellationToken cancell
         .Select(b => new { b.Id, b.Name })
         .ToListAsync(cancellationToken)))
 .RequireAuthorization();
+
+app.MapMenuEndpoints();
 
 app.Run();
 

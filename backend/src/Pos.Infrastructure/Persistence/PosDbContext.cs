@@ -12,6 +12,14 @@ public sealed class PosDbContext(DbContextOptions<PosDbContext> options) : DbCon
     public DbSet<BranchSettings> BranchSettings => Set<BranchSettings>();
 
     public DbSet<User> Users => Set<User>();
+    public DbSet<Category> Categories => Set<Category>();
+    public DbSet<MenuItem> MenuItems => Set<MenuItem>();
+    public DbSet<ModifierGroup> ModifierGroups => Set<ModifierGroup>();
+    public DbSet<Modifier> Modifiers => Set<Modifier>();
+    public DbSet<ItemModifierGroup> ItemModifierGroups => Set<ItemModifierGroup>();
+    public DbSet<Combo> Combos => Set<Combo>();
+    public DbSet<ComboItem> ComboItems => Set<ComboItem>();
+    public DbSet<Station> Stations => Set<Station>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
