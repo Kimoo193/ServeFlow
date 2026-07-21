@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
 using Pos.Application.Common;
 
 namespace Pos.Infrastructure.Persistence;
@@ -23,28 +22,20 @@ public sealed class TenantSessionMiddleware(RequestDelegate next)
 
         var tenantId = tenantContext.TenantId;
 
+        // No explicit try/catch/rollback: `await using` disposes an uncommitted
+        // transaction on any exit path (including an exception from next(context)),
+        // and EF Core/Npgsql roll it back automatically on disposal. An earlier version
+        // added an explicit catch { RollbackAsync(context.RequestAborted); throw; } —
+        // that was not just redundant, it was actively wrong: reusing the same
+        // (possibly already-canceled) RequestAborted token for the rollback meant a
+        // client disconnect could make RollbackAsync itself throw OperationCanceledException,
+        // discarding whatever the real exception was before `throw;` ever ran.
         await using var transaction = await dbContext.Database.BeginTransactionAsync(context.RequestAborted);
-        try
-        {
-            // Postgres's SET command grammar does not accept a bound parameter for the
-            // config value, so ExecuteSqlInterpolated/ExecuteSqlAsync (which parameterize)
-            // cannot be used here — ExecuteSqlRaw is the only option. Guid.ToString("D")
-            // produces a fixed hex-and-dash literal that can never carry SQL metacharacters,
-            // so this raw interpolation is safe; verified, not merely assumed.
-#pragma warning disable EF1002
-            await dbContext.Database.ExecuteSqlRawAsync(
-                $"SET LOCAL app.tenant_id = '{tenantId:D}'",
-                context.RequestAborted);
-#pragma warning restore EF1002
 
-            await next(context);
+        await dbContext.Database.SetTenantAsync(tenantId, context.RequestAborted);
 
-            await transaction.CommitAsync(context.RequestAborted);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(context.RequestAborted);
-            throw;
-        }
+        await next(context);
+
+        await transaction.CommitAsync(context.RequestAborted);
     }
 }

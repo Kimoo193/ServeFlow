@@ -6,10 +6,11 @@ using Testcontainers.PostgreSql;
 namespace Pos.Application.Tests.Rls;
 
 /// <summary>
-/// Spins up a real, hermetic Postgres 16 container per test class, applies the
-/// InitialCreate migration (as the admin/owner role) and the idempotent
-/// 002_create_app_role.sql script, then exposes a connection string for the
-/// non-superuser pos_app role — the only role tests are allowed to connect as.
+/// Spins up a real, hermetic Postgres 16 container once per RlsCollection (shared across
+/// every test class in that collection, see RlsCollection), applies the InitialCreate
+/// migration (as the admin/owner role) and the idempotent 002_create_app_role.sql script,
+/// then exposes a connection string for the non-superuser pos_app role — the only role
+/// tests are allowed to connect as.
 /// </summary>
 public sealed class PostgresRlsFixture : IAsyncLifetime
 {

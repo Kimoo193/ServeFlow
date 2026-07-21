@@ -15,7 +15,8 @@ namespace Pos.Application.Tests.Rls;
 /// so the whole pipeline (mint, validate, claims, tenant context, RLS) is exercised,
 /// not just the database layer in isolation.
 /// </summary>
-public sealed class BranchesEndpointRlsTests(PostgresRlsFixture fixture) : IClassFixture<PostgresRlsFixture>
+[Collection(RlsCollection.Name)]
+public sealed class BranchesEndpointRlsTests(PostgresRlsFixture fixture)
 {
     [Fact]
     public async Task Get_branches_over_http_returns_only_the_authenticated_tenants_rows()
@@ -78,10 +79,7 @@ public sealed class BranchesEndpointRlsTests(PostgresRlsFixture fixture) : IClas
         await connection.OpenAsync();
         await using var transaction = await connection.BeginTransactionAsync();
 
-        await using (var setTenant = new NpgsqlCommand($"SET LOCAL app.tenant_id = '{tenantId:D}'", connection))
-        {
-            await setTenant.ExecuteNonQueryAsync();
-        }
+        await RlsTestSql.SetTenantAsync(connection, tenantId);
 
         await using (var insertTenant = new NpgsqlCommand(
             "INSERT INTO tenants (id, name, type) VALUES (@id, @name, 'Restaurant')", connection))

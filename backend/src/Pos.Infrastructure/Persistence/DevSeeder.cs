@@ -18,12 +18,7 @@ public static class DevSeeder
     {
         await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
 
-        // See TenantSessionMiddleware for why ExecuteSqlRaw + Guid.ToString("D") is safe here.
-#pragma warning disable EF1002
-        await dbContext.Database.ExecuteSqlRawAsync(
-            $"SET LOCAL app.tenant_id = '{TenantId:D}'",
-            cancellationToken);
-#pragma warning restore EF1002
+        await dbContext.Database.SetTenantAsync(TenantId, cancellationToken);
 
         if (!await dbContext.Tenants.AnyAsync(t => t.Id == TenantId, cancellationToken))
         {

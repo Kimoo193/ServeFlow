@@ -7,7 +7,8 @@ namespace Pos.Application.Tests.Rls;
 /// rows via RLS, even with a crafted query — connecting only as the non-superuser
 /// pos_app role (a superuser would bypass RLS and invalidate the test).
 /// </summary>
-public sealed class RlsIsolationTests(PostgresRlsFixture fixture) : IClassFixture<PostgresRlsFixture>
+[Collection(RlsCollection.Name)]
+public sealed class RlsIsolationTests(PostgresRlsFixture fixture)
 {
     [Fact]
     public async Task Unfiltered_query_returns_only_the_current_tenants_rows()
@@ -19,7 +20,7 @@ public sealed class RlsIsolationTests(PostgresRlsFixture fixture) : IClassFixtur
 
         await using var connection = await OpenAppConnectionAsync();
         await using var transaction = await connection.BeginTransactionAsync();
-        await SetTenantAsync(connection, tenantA);
+        await RlsTestSql.SetTenantAsync(connection, tenantA);
 
         var names = await QueryBranchNamesAsync(connection);
 
@@ -36,7 +37,7 @@ public sealed class RlsIsolationTests(PostgresRlsFixture fixture) : IClassFixtur
 
         await using var connection = await OpenAppConnectionAsync();
         await using var transaction = await connection.BeginTransactionAsync();
-        await SetTenantAsync(connection, tenantA);
+        await RlsTestSql.SetTenantAsync(connection, tenantA);
 
         // An attacker-crafted query explicitly asking for tenant B's rows by id — RLS
         // still intersects with the session's own tenant, so this returns nothing,
@@ -80,14 +81,14 @@ public sealed class RlsIsolationTests(PostgresRlsFixture fixture) : IClassFixtur
 
         await using (var transaction = await connection.BeginTransactionAsync())
         {
-            await SetTenantAsync(connection, tenantA);
+            await RlsTestSql.SetTenantAsync(connection, tenantA);
             Assert.Equal(["A Solo"], await QueryBranchNamesAsync(connection));
             await transaction.CommitAsync();
         }
 
         await using (var transaction = await connection.BeginTransactionAsync())
         {
-            await SetTenantAsync(connection, tenantB);
+            await RlsTestSql.SetTenantAsync(connection, tenantB);
             Assert.Equal(["B Solo"], await QueryBranchNamesAsync(connection));
             await transaction.CommitAsync();
         }
@@ -106,7 +107,7 @@ public sealed class RlsIsolationTests(PostgresRlsFixture fixture) : IClassFixtur
         await using (var connection = await OpenAppConnectionAsync())
         {
             await using var transaction = await connection.BeginTransactionAsync();
-            await SetTenantAsync(connection, tenantA);
+            await RlsTestSql.SetTenantAsync(connection, tenantA);
             Assert.Equal(["A Pooled"], await QueryBranchNamesAsync(connection));
             await transaction.CommitAsync();
         }
@@ -117,7 +118,7 @@ public sealed class RlsIsolationTests(PostgresRlsFixture fixture) : IClassFixtur
         await using (var connection = await OpenAppConnectionAsync())
         {
             await using var transaction = await connection.BeginTransactionAsync();
-            await SetTenantAsync(connection, tenantB);
+            await RlsTestSql.SetTenantAsync(connection, tenantB);
             Assert.Equal(["B Pooled"], await QueryBranchNamesAsync(connection));
             await transaction.CommitAsync();
         }
@@ -136,7 +137,7 @@ public sealed class RlsIsolationTests(PostgresRlsFixture fixture) : IClassFixtur
 
         await using var connection = await OpenAppConnectionAsync();
         await using var transaction = await connection.BeginTransactionAsync();
-        await SetTenantAsync(connection, tenantA);
+        await RlsTestSql.SetTenantAsync(connection, tenantA);
 
         var names = await QuerySingleColumnAsync(connection, "tenants", "name");
 
@@ -153,7 +154,7 @@ public sealed class RlsIsolationTests(PostgresRlsFixture fixture) : IClassFixtur
 
         await using var connection = await OpenAppConnectionAsync();
         await using var transaction = await connection.BeginTransactionAsync();
-        await SetTenantAsync(connection, tenantA);
+        await RlsTestSql.SetTenantAsync(connection, tenantA);
 
         var displayNames = await QuerySingleColumnAsync(connection, "users", "display_name");
 
@@ -172,7 +173,7 @@ public sealed class RlsIsolationTests(PostgresRlsFixture fixture) : IClassFixtur
 
         await using var connection = await OpenAppConnectionAsync();
         await using var transaction = await connection.BeginTransactionAsync();
-        await SetTenantAsync(connection, tenantA);
+        await RlsTestSql.SetTenantAsync(connection, tenantA);
 
         var currencies = await QuerySingleColumnAsync(connection, "branch_settings", "currency");
 
@@ -184,13 +185,6 @@ public sealed class RlsIsolationTests(PostgresRlsFixture fixture) : IClassFixtur
         var connection = new NpgsqlConnection(fixture.AppConnectionString);
         await connection.OpenAsync();
         return connection;
-    }
-
-    private static async Task SetTenantAsync(NpgsqlConnection connection, Guid tenantId)
-    {
-        await using var command = new NpgsqlCommand(
-            $"SET LOCAL app.tenant_id = '{tenantId:D}'", connection);
-        await command.ExecuteNonQueryAsync();
     }
 
     private static Task<List<string>> QueryBranchNamesAsync(NpgsqlConnection connection) =>
@@ -218,7 +212,7 @@ public sealed class RlsIsolationTests(PostgresRlsFixture fixture) : IClassFixtur
         // set its own tenant before inserting — exactly like DevSeeder does.
         await using var connection = await OpenAppConnectionAsync();
         await using var transaction = await connection.BeginTransactionAsync();
-        await SetTenantAsync(connection, tenantId);
+        await RlsTestSql.SetTenantAsync(connection, tenantId);
 
         await using (var insertTenant = new NpgsqlCommand(
             "INSERT INTO tenants (id, name, type) VALUES (@id, @name, 'Restaurant')", connection))
@@ -244,7 +238,7 @@ public sealed class RlsIsolationTests(PostgresRlsFixture fixture) : IClassFixtur
     {
         await using var connection = await OpenAppConnectionAsync();
         await using var transaction = await connection.BeginTransactionAsync();
-        await SetTenantAsync(connection, tenantId);
+        await RlsTestSql.SetTenantAsync(connection, tenantId);
 
         await using (var insertTenant = new NpgsqlCommand(
             "INSERT INTO tenants (id, name, type) VALUES (@id, @name, 'Restaurant')", connection))

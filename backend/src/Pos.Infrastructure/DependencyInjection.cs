@@ -27,14 +27,23 @@ public static class DependencyInjection
             options.UseNpgsql(connectionString);
         });
 
-        services.AddSingleton<IConnectionMultiplexer>(serviceProvider =>
+        // Lazy<Task<T>> instead of a plain IConnectionMultiplexer singleton: connecting
+        // is deferred to first use (only RedisHealthCheck triggers it today) and done via
+        // ConnectAsync, so whichever request first resolves this yields its thread during
+        // the handshake instead of blocking it — Connect() (synchronous) would block.
+        // Lazy<T>'s default thread-safety mode still runs the factory exactly once even
+        // if concurrent health checks race for it.
+        services.AddSingleton(serviceProvider =>
         {
             var connectionString = serviceProvider.GetRequiredService<IConfiguration>().GetConnectionString("Redis")
                 ?? throw new InvalidOperationException("Connection string 'Redis' is not configured.");
 
-            var redisOptions = ConfigurationOptions.Parse(connectionString);
-            redisOptions.AbortOnConnectFail = false;
-            return ConnectionMultiplexer.Connect(redisOptions);
+            return new Lazy<Task<IConnectionMultiplexer>>(async () =>
+            {
+                var redisOptions = ConfigurationOptions.Parse(connectionString);
+                redisOptions.AbortOnConnectFail = false;
+                return await ConnectionMultiplexer.ConnectAsync(redisOptions);
+            });
         });
 
         services.AddHttpContextAccessor();

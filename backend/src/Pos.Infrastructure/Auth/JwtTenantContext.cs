@@ -10,6 +10,15 @@ namespace Pos.Infrastructure.Auth;
 /// KimooKit will issue the JWTs carrying these claims; until then, the
 /// Development-only /dev/token endpoint mints tokens with the same shape.
 /// </summary>
+/// <remarks>
+/// HTTP-request-scoped by design: it requires an <see cref="HttpContext"/> and throws if
+/// none is available. CLAUDE.md requires background jobs to also run inside a tenant
+/// context — this implementation cannot serve that today, and none exists to serve it
+/// either, since no background job has been built yet (Slice 1). Before the first
+/// background job lands, it will need its own <see cref="ITenantContext"/>
+/// implementation (e.g. one constructed explicitly from a known tenant id, not from
+/// claims) rather than reusing this one.
+/// </remarks>
 public sealed class JwtTenantContext : ITenantContext
 {
     public const string TenantIdClaim = "tenant_id";
