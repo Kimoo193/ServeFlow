@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.SignalR.StackExchangeRedis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Pos.Application.Common;
 using Pos.Infrastructure.Auth;
 using Pos.Infrastructure.HealthChecks;
@@ -46,6 +48,8 @@ public static class DependencyInjection
             });
         });
 
+        services.AddSingleton<IClock, SystemClock>();
+
         services.AddHttpContextAccessor();
         services.AddScoped<ITenantContext, JwtTenantContext>();
 
@@ -53,6 +57,25 @@ public static class DependencyInjection
             .AddHealthChecks()
             .AddCheck<PostgresHealthCheck>("postgres")
             .AddCheck<RedisHealthCheck>("redis");
+
+        // The string overload of AddStackExchangeRedis needs a connection string
+        // synchronously at registration time, which reintroduces the early-capture bug
+        // this file otherwise avoids (confirmed by a failing test: WebApplicationFactory
+        // adds its ConfigureAppConfiguration overrides to IConfiguration during Build(),
+        // strictly after this method runs, so any read here — direct or via a throwaway
+        // BuildServiceProvider() — sees an incomplete configuration).
+        // AddStackExchangeRedis() (no args) instead wires the Redis backplane to whatever
+        // IOptions<RedisOptions> DI resolves, which — like AddDbContext/AddSingleton above —
+        // is only actually constructed post-Build(), when SignalR first needs it.
+        services.AddOptions<RedisOptions>().Configure<IConfiguration>((options, configuration) =>
+        {
+            var connectionString = configuration.GetConnectionString("Redis")
+                ?? throw new InvalidOperationException("Connection string 'Redis' is not configured.");
+            options.Configuration = ConfigurationOptions.Parse(connectionString);
+        });
+
+        services.AddSignalR()
+            .AddStackExchangeRedis();
 
         return services;
     }

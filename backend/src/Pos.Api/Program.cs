@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using Pos.Api;
 using Pos.Api.Contracts;
 using Pos.Api.ExceptionHandling;
+using Pos.Api.Hubs;
 using Pos.Application.Common;
 using Pos.Domain.Entities;
 using Pos.Infrastructure;
@@ -56,6 +57,19 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)),
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken) && context.HttpContext.Request.Path.StartsWithSegments("/posHub"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            },
         };
     });
 
@@ -144,6 +158,8 @@ app.MapGet("/branches", async (PosDbContext dbContext, CancellationToken cancell
 app.MapMenuEndpoints();
 app.MapDiningAreaEndpoints();
 app.MapOrderEndpoints();
+
+app.MapHub<PosHub>("/posHub").RequireAuthorization();
 
 app.Run();
 

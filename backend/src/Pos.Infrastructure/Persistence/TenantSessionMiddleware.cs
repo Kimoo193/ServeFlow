@@ -14,7 +14,13 @@ public sealed class TenantSessionMiddleware(RequestDelegate next)
 {
     public async Task InvokeAsync(HttpContext context, PosDbContext dbContext, ITenantContext tenantContext)
     {
-        if (context.User.Identity?.IsAuthenticated != true)
+        // SignalR hub connections are long-lived: next(context) below would not return
+        // until the connection closes, which would hold this transaction (and its
+        // pooled connection) open for the connection's entire lifetime — exhausting the
+        // pool as soon as more than a handful of KDS/waiter clients stay connected.
+        // PosHub methods call TenantSessionSql.SetTenantAsync themselves, per invocation,
+        // instead of relying on this middleware.
+        if (context.User.Identity?.IsAuthenticated != true || context.Request.Path.StartsWithSegments("/posHub"))
         {
             await next(context);
             return;

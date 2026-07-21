@@ -7,7 +7,7 @@ namespace Pos.Infrastructure.Persistence;
 /// Shared by TenantSessionMiddleware and DevSeeder — both need to issue
 /// <c>SET LOCAL app.tenant_id</c> as the first statement of their own transaction.
 /// </summary>
-internal static class TenantSessionSql
+public static class TenantSessionSql
 {
     public static async Task SetTenantAsync(this DatabaseFacade database, Guid tenantId, CancellationToken cancellationToken = default)
     {

@@ -1,4 +1,7 @@
+using System.Text.Json;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Pos.Api.Hubs;
 using Pos.Application.Common;
 using Pos.Domain.Entities;
 using Pos.Infrastructure.Persistence;
@@ -12,7 +15,7 @@ internal static class OrderEndpoints
         var group = app.MapGroup(string.Empty).RequireAuthorization();
 
         // --- Open a dine-in order on a table ---
-        group.MapPost("/tables/{tableId:guid}/orders", async (Guid tableId, PosDbContext db, ITenantContext tenantContext, CancellationToken ct) =>
+        group.MapPost("/tables/{tableId:guid}/orders", async (Guid tableId, PosDbContext db, ITenantContext tenantContext, IClock clock, CancellationToken ct) =>
         {
             var table = await db.DiningTables.FindAsync([tableId], ct);
             if (table is null) return Results.NotFound();
@@ -30,6 +33,18 @@ internal static class OrderEndpoints
             };
             db.Orders.Add(order);
 
+            var orderEvent = new OrderEvent
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantContext.TenantId,
+                OrderId = order.Id,
+                EventType = OrderEventType.Created,
+                Details = JsonSerializer.Serialize(new { orderType = order.OrderType.ToString(), tableId }),
+                PerformedBy = tenantContext.UserId,
+                PerformedAt = clock.UtcNow,
+            };
+            db.OrderEvents.Add(orderEvent);
+
             // specs/03-state-machines.md: "Available --> Occupied : order opened on table".
             // The partial unique index on orders(table_id) is the actual enforcement
             // mechanism (see OrderConfiguration); this keeps the displayed status in sync
@@ -45,7 +60,7 @@ internal static class OrderEndpoints
         });
 
         // --- Open a takeaway order ---
-        group.MapPost("/orders", async (CreateTakeawayOrderRequest? body, PosDbContext db, ITenantContext tenantContext, CancellationToken ct) =>
+        group.MapPost("/orders", async (CreateTakeawayOrderRequest? body, PosDbContext db, ITenantContext tenantContext, IClock clock, CancellationToken ct) =>
         {
             var dailyNo = await db.Orders
                 .Where(o => o.TenantId == tenantContext.TenantId && o.BranchId == tenantContext.BranchId && o.OrderType == OrderType.Takeaway)
@@ -64,6 +79,19 @@ internal static class OrderEndpoints
                 RowVersion = 1,
             };
             db.Orders.Add(order);
+
+            var orderEvent = new OrderEvent
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantContext.TenantId,
+                OrderId = order.Id,
+                EventType = OrderEventType.Created,
+                Details = JsonSerializer.Serialize(new { orderType = order.OrderType.ToString(), customerName = order.CustomerName }),
+                PerformedBy = tenantContext.UserId,
+                PerformedAt = clock.UtcNow,
+            };
+            db.OrderEvents.Add(orderEvent);
+
             await db.SaveChangesAsync(ct);
 
             return Results.Created($"/orders/{order.Id}", new { orderId = order.Id, status = order.Status.ToString(), dailyNo = order.DailyNo, rowVersion = order.RowVersion });
@@ -74,7 +102,7 @@ internal static class OrderEndpoints
         {
             var order = await db.Orders.FindAsync([orderId], ct);
             if (order is null) return Results.NotFound();
-            if (order.Status != OrderStatus.Open)
+            if (order.Status != OrderStatus.Open && order.Status != OrderStatus.InProgress)
                 return Results.Problem(statusCode: 409, title: "Order is not open");
 
             if (order.RowVersion != body.RowVersion)
@@ -133,7 +161,7 @@ internal static class OrderEndpoints
         {
             var order = await db.Orders.FindAsync([orderId], ct);
             if (order is null) return Results.NotFound();
-            if (order.Status != OrderStatus.Open)
+            if (order.Status != OrderStatus.Open && order.Status != OrderStatus.InProgress)
                 return Results.Problem(statusCode: 409, title: "Order is not open");
 
             if (order.RowVersion != body.RowVersion)
@@ -228,6 +256,7 @@ internal static class OrderEndpoints
                 quantity = l.Quantity,
                 unitPrice = l.UnitPrice,
                 status = l.Status.ToString(),
+                fireBatchId = l.FireBatchId,
                 modifiers = modifiers
                     .Where(m => m.OrderLineId == l.Id)
                     .Select(m => new { name = m.Name, priceDelta = m.PriceDelta }),
@@ -247,9 +276,127 @@ internal static class OrderEndpoints
             });
         });
 
+        // --- Fire endpoint ---
+        group.MapPost("/orders/{orderId:guid}/fire", async (Guid orderId, FireBatchRequest body, PosDbContext db, ITenantContext tenantContext, IClock clock, IHubContext<PosHub> hubContext, CancellationToken ct) =>
+        {
+            var order = await db.Orders.FindAsync([orderId], ct);
+            if (order is null) return Results.NotFound();
+
+            if (order.Status != OrderStatus.Open && order.Status != OrderStatus.InProgress)
+                return Results.Problem(statusCode: 409, title: "Order is not open");
+
+            if (order.RowVersion != body.RowVersion)
+                return Results.Problem(statusCode: 409, title: "Concurrency conflict", detail: "Stale row version");
+
+            var draftLines = await db.OrderLines
+                .Where(ol => ol.OrderId == orderId && ol.Status == OrderLineStatus.Draft)
+                .ToListAsync(ct);
+
+            if (draftLines.Count == 0)
+                return Results.Problem(statusCode: 409, title: "Nothing to fire");
+
+            var fireBatchId = Guid.NewGuid();
+            foreach (var line in draftLines)
+            {
+                line.FireBatchId = fireBatchId;
+                line.Status = OrderLineStatus.Fired;
+            }
+
+            if (order.Status == OrderStatus.Open)
+                order.Status = OrderStatus.InProgress;
+
+            var orderEvent = new OrderEvent
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantContext.TenantId,
+                OrderId = orderId,
+                EventType = OrderEventType.Fired,
+                Details = JsonSerializer.Serialize(new
+                {
+                    fireBatchId,
+                    lineIds = draftLines.Select(l => l.Id).ToList(),
+                }),
+                PerformedBy = tenantContext.UserId,
+                PerformedAt = clock.UtcNow,
+            };
+            db.OrderEvents.Add(orderEvent);
+
+            order.RowVersion++;
+            await db.SaveChangesAsync(ct);
+
+            // Broadcast after successful save — fire is authoritative, broadcast is best-effort.
+            var groupsByStation = draftLines
+                .GroupBy(l => l.StationId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            foreach (var (stationId, stationLines) in groupsByStation)
+            {
+                await hubContext.Clients.Group($"station:{stationId}").SendAsync("OrderFired", new
+                {
+                    fireBatchId,
+                    orderId,
+                    lines = stationLines.Select(l => new
+                    {
+                        id = l.Id,
+                        itemId = l.ItemId,
+                        sequence = l.Sequence,
+                        quantity = l.Quantity,
+                        unitPrice = l.UnitPrice,
+                        modifiers = Array.Empty<object>(), // not loaded — callers can fetch if needed
+                    }),
+                }, ct);
+            }
+
+            return Results.Ok(new
+            {
+                fireBatchId,
+                firedLines = draftLines.Count,
+                rowVersion = order.RowVersion,
+            });
+        });
+
+        // --- KDS read: tickets for a station ---
+        group.MapGet("/kds/stations/{stationId:guid}/tickets", async (Guid stationId, PosDbContext db, CancellationToken ct) =>
+        {
+            var firedLines = await db.OrderLines
+                .Where(ol => ol.StationId == stationId && ol.Status == OrderLineStatus.Fired)
+                .OrderBy(ol => ol.Sequence)
+                .ToListAsync(ct);
+
+            var lineIds = firedLines.Select(l => l.Id).ToHashSet();
+            var modifiers = lineIds.Count > 0
+                ? await db.OrderLineModifiers.Where(olm => lineIds.Contains(olm.OrderLineId)).ToListAsync(ct)
+                : [];
+
+            var tickets = firedLines
+                .GroupBy(l => new { l.OrderId, l.StationId, FireBatchId = l.FireBatchId!.Value })
+                .OrderBy(g => g.Min(l => l.Sequence)) // oldest first by earliest line sequence
+                .Select(g => new
+                {
+                    orderId = g.Key.OrderId,
+                    fireBatchId = g.Key.FireBatchId,
+                    lines = g.Select(l => new
+                    {
+                        id = l.Id,
+                        itemId = l.ItemId,
+                        sequence = l.Sequence,
+                        quantity = l.Quantity,
+                        unitPrice = l.UnitPrice,
+                        status = l.Status.ToString(),
+                        modifiers = modifiers
+                            .Where(m => m.OrderLineId == l.Id)
+                            .Select(m => new { name = m.Name, priceDelta = m.PriceDelta }),
+                    }),
+                });
+
+            return Results.Ok(tickets);
+        });
+
         return app;
     }
 }
+
+internal sealed record FireBatchRequest(int RowVersion);
 
 internal sealed record CreateTakeawayOrderRequest(string? CustomerName);
 internal sealed record AddDraftLineRequest(Guid MenuItemId, int Quantity, List<Guid> ModifierIds, int RowVersion);

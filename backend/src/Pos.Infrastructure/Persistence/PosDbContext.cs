@@ -25,6 +25,7 @@ public sealed class PosDbContext(DbContextOptions<PosDbContext> options) : DbCon
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderLine> OrderLines => Set<OrderLine>();
     public DbSet<OrderLineModifier> OrderLineModifiers => Set<OrderLineModifier>();
+    public DbSet<OrderEvent> OrderEvents => Set<OrderEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
