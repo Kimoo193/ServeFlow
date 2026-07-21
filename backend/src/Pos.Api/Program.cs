@@ -1,10 +1,12 @@
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Pos.Api.Contracts;
+using Pos.Api.ExceptionHandling;
 using Pos.Application.Common;
 using Pos.Domain.Entities;
 using Pos.Infrastructure;
@@ -15,6 +17,9 @@ using System.IdentityModel.Tokens.Jwt;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddInfrastructure();
+
+builder.Services.AddExceptionHandler<InvalidTenantClaimsExceptionHandler>();
+builder.Services.AddProblemDetails();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -70,7 +75,17 @@ if (app.Environment.IsDevelopment())
         var tenantId = request?.TenantId ?? DevSeeder.TenantId;
         var branchId = request?.BranchId ?? DevSeeder.BranchId;
         var userId = request?.UserId ?? DevSeeder.OwnerUserId;
-        var role = request?.Role ?? nameof(Role.Owner);
+        var roleValue = request?.Role ?? nameof(Role.Owner);
+
+        // Reject an invalid role at mint time rather than only failing later, differently,
+        // whichever endpoint happens to read .Role first.
+        if (!Enum.TryParse<Role>(roleValue, ignoreCase: true, out var role) || !Enum.IsDefined(role))
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Invalid role",
+                detail: $"'{roleValue}' is not a valid role. Valid roles: {string.Join(", ", Enum.GetNames<Role>())}.");
+        }
 
         var signingKey = configuration["Jwt:SigningKey"]
             ?? throw new InvalidOperationException("Jwt:SigningKey is not configured.");
@@ -84,7 +99,7 @@ if (app.Environment.IsDevelopment())
             new Claim(JwtTenantContext.TenantIdClaim, tenantId.ToString()),
             new Claim(JwtTenantContext.BranchIdClaim, branchId.ToString()),
             new Claim(JwtTenantContext.UserIdClaim, userId.ToString()),
-            new Claim(JwtTenantContext.RoleClaim, role),
+            new Claim(JwtTenantContext.RoleClaim, role.ToString()),
         };
 
         var expires = DateTime.UtcNow.AddHours(8);
@@ -94,6 +109,10 @@ if (app.Environment.IsDevelopment())
         return Results.Ok(new DevTokenResponse(accessToken, expires));
     });
 }
+
+// Registered first so it wraps every subsequent middleware, including
+// TenantSessionMiddleware and the endpoint handlers below.
+app.UseExceptionHandler();
 
 app.UseAuthentication();
 app.UseAuthorization();

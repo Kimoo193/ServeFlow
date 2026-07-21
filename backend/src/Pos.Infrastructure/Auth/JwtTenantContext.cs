@@ -44,20 +44,22 @@ public sealed class JwtTenantContext : ITenantContext
     private static Guid ReadGuidClaim(ClaimsPrincipal user, string claimType)
     {
         var value = user.FindFirst(claimType)?.Value
-            ?? throw new InvalidOperationException($"Required claim '{claimType}' is missing from the authenticated principal.");
+            ?? throw new InvalidTenantClaimsException($"Required claim '{claimType}' is missing from the authenticated principal.");
 
         return Guid.TryParse(value, out var parsed)
             ? parsed
-            : throw new InvalidOperationException($"Claim '{claimType}' value '{value}' is not a valid GUID.");
+            : throw new InvalidTenantClaimsException($"Claim '{claimType}' value '{value}' is not a valid GUID.");
     }
 
     private static Role ReadRoleClaim(ClaimsPrincipal user)
     {
         var value = user.FindFirst(RoleClaim)?.Value
-            ?? throw new InvalidOperationException($"Required claim '{RoleClaim}' is missing from the authenticated principal.");
+            ?? throw new InvalidTenantClaimsException($"Required claim '{RoleClaim}' is missing from the authenticated principal.");
 
-        return Enum.TryParse<Role>(value, ignoreCase: true, out var parsed)
+        // Enum.TryParse alone accepts any parseable integer string (e.g. "999") for a
+        // non-flags enum, not just the named members — Enum.IsDefined closes that gap.
+        return Enum.TryParse<Role>(value, ignoreCase: true, out var parsed) && Enum.IsDefined(parsed)
             ? parsed
-            : throw new InvalidOperationException($"Claim '{RoleClaim}' value '{value}' is not a valid role.");
+            : throw new InvalidTenantClaimsException($"Claim '{RoleClaim}' value '{value}' is not a valid role.");
     }
 }
