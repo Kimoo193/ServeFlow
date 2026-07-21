@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="10.0.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.10" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <PackageReference Include="Testcontainers.PostgreSql" Version="4.13.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Pos.Application\Pos.Application.csproj" />
+    <ProjectReference Include="..\..\src\Pos.Infrastructure\Pos.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Pos.Api\Pos.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Single source of truth: the role/grants script tests apply is the same file
+         reviewed at the Slice 1 gate, not a duplicated copy. -->
+    <None Include="..\..\scripts\002_create_app_role.sql" Link="Scripts\002_create_app_role.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
