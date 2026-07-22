@@ -37,6 +37,16 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
             .HasColumnName("customer_name")
             .HasMaxLength(200);
 
+        builder.Property(o => o.SubtotalAmount).HasColumnName("subtotal_amount");
+
+        builder.Property(o => o.ServiceAmount).HasColumnName("service_amount");
+
+        builder.Property(o => o.TaxAmount).HasColumnName("tax_amount");
+
+        builder.Property(o => o.DiscountAmount).HasColumnName("discount_amount");
+
+        builder.Property(o => o.TotalAmount).HasColumnName("total_amount");
+
         builder.Property(o => o.RowVersion)
             .HasColumnName("row_version")
             .IsConcurrencyToken();

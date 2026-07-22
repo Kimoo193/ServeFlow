@@ -19,4 +19,8 @@ public class BranchSettings
     public bool ServiceApplies { get; set; }
 
     public bool TaxOnService { get; set; }
+
+    public string? PrinterIp { get; set; }
+
+    public int? PrinterPort { get; set; }
 }

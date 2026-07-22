@@ -63,6 +63,15 @@ namespace Pos.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(3)")
                         .HasColumnName("currency");
 
+                    b.Property<string>("PrinterIp")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("printer_ip");
+
+                    b.Property<int?>("PrinterPort")
+                        .HasColumnType("integer")
+                        .HasColumnName("printer_port");
+
                     b.Property<bool>("ServiceApplies")
                         .HasColumnType("boolean")
                         .HasColumnName("service_applies");
@@ -393,6 +402,10 @@ namespace Pos.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("daily_no");
 
+                    b.Property<decimal?>("DiscountAmount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("discount_amount");
+
                     b.Property<string>("OrderType")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -404,19 +417,35 @@ namespace Pos.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("row_version");
 
+                    b.Property<decimal?>("ServiceAmount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("service_amount");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("status");
 
+                    b.Property<decimal?>("SubtotalAmount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("subtotal_amount");
+
                     b.Property<Guid?>("TableId")
                         .HasColumnType("uuid")
                         .HasColumnName("table_id");
 
+                    b.Property<decimal?>("TaxAmount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("tax_amount");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");
+
+                    b.Property<decimal?>("TotalAmount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("total_amount");
 
                     b.Property<Guid>("WaiterId")
                         .HasColumnType("uuid")

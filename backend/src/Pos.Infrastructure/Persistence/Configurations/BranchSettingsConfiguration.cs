@@ -34,6 +34,13 @@ public sealed class BranchSettingsConfiguration : IEntityTypeConfiguration<Branc
         builder.Property(s => s.ServiceApplies).HasColumnName("service_applies");
         builder.Property(s => s.TaxOnService).HasColumnName("tax_on_service");
 
+        builder.Property(s => s.PrinterIp)
+            .HasColumnName("printer_ip")
+            .HasMaxLength(50);
+
+        builder.Property(s => s.PrinterPort)
+            .HasColumnName("printer_port");
+
         builder.HasOne<Branch>()
             .WithOne()
             .HasForeignKey<BranchSettings>(s => s.BranchId)

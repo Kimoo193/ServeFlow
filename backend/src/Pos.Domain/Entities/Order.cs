@@ -11,5 +11,11 @@ public class Order
     public OrderStatus Status { get; set; }
     public int? DailyNo { get; set; }
     public string? CustomerName { get; set; }
+    public decimal? SubtotalAmount { get; set; }
+    public decimal? ServiceAmount { get; set; }
+    public decimal? TaxAmount { get; set; }
+    public decimal? DiscountAmount { get; set; }
+    public decimal? TotalAmount { get; set; }
+
     public int RowVersion { get; set; }
 }

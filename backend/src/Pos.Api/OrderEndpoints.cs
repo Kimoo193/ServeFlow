@@ -1,3 +1,6 @@
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -271,6 +274,11 @@ internal static class OrderEndpoints
                 status = order.Status.ToString(),
                 dailyNo = order.DailyNo,
                 customerName = order.CustomerName,
+                subtotalAmount = order.SubtotalAmount,
+                serviceAmount = order.ServiceAmount,
+                taxAmount = order.TaxAmount,
+                discountAmount = order.DiscountAmount,
+                totalAmount = order.TotalAmount,
                 rowVersion = order.RowVersion,
                 lines = linesDto,
             });
@@ -700,7 +708,260 @@ internal static class OrderEndpoints
             });
         });
 
+        // --- Close order (snapshot totals, release table) ---
+        group.MapPost("/orders/{orderId:guid}/close", async (Guid orderId, CloseOrderRequest body, PosDbContext db, ITenantContext tenantContext, IClock clock, CancellationToken ct) =>
+        {
+            var order = await db.Orders.FindAsync([orderId], ct);
+            if (order is null) return Results.NotFound();
+
+            if (order.Status == OrderStatus.Completed)
+                return Results.Problem(statusCode: 409, title: "Order is already completed");
+
+            if (order.RowVersion != body.RowVersion)
+                return Results.Problem(statusCode: 409, title: "Concurrency conflict", detail: "Stale row version");
+
+            // BR-B-05: block close while any line is Fired or Preparing
+            var lines = await db.OrderLines
+                .Where(ol => ol.OrderId == orderId)
+                .ToListAsync(ct);
+
+            if (lines.Any(l => l.Status is OrderLineStatus.Fired or OrderLineStatus.Preparing))
+                return Results.Problem(statusCode: 409, title: "Order has unfinished lines", detail: "All lines must be Served or Voided before closing");
+
+            var branchSettings = await db.BranchSettings
+                .FirstOrDefaultAsync(bs => bs.BranchId == order.BranchId, ct);
+
+            // Load modifiers for non-voided lines
+            var nonVoidedLineIds = lines
+                .Where(l => l.Status != OrderLineStatus.Voided)
+                .Select(l => l.Id)
+                .ToHashSet();
+
+            var modifiers = nonVoidedLineIds.Count > 0
+                ? await db.OrderLineModifiers.Where(olm => nonVoidedLineIds.Contains(olm.OrderLineId)).ToListAsync(ct)
+                : [];
+
+            // BR-B computation (exact order: subtotal → service → taxable_base → tax → total)
+            var subtotal = lines
+                .Where(l => l.Status != OrderLineStatus.Voided)
+                .Sum(l =>
+                {
+                    var lineTotal = l.UnitPrice * l.Quantity;
+                    var modifierSum = modifiers.Where(m => m.OrderLineId == l.Id).Sum(m => m.PriceDelta);
+                    return lineTotal + modifierSum;
+                });
+
+            var serviceAmount = (branchSettings?.ServiceApplies ?? false)
+                ? subtotal * (branchSettings!.ServiceChargeRate)
+                : 0m;
+
+            var taxableBase = (branchSettings?.TaxOnService ?? false)
+                ? subtotal + serviceAmount
+                : subtotal;
+
+            var taxAmount = (branchSettings?.TaxApplies ?? false)
+                ? taxableBase * (branchSettings!.TaxRate)
+                : 0m;
+
+            var discountAmount = 0m;
+
+            var total = subtotal + serviceAmount + taxAmount - discountAmount;
+
+            // Snapshot onto the order (BR-B-03)
+            order.Status = OrderStatus.Completed;
+            order.SubtotalAmount = subtotal;
+            order.ServiceAmount = serviceAmount;
+            order.TaxAmount = taxAmount;
+            order.DiscountAmount = discountAmount;
+            order.TotalAmount = total;
+
+            // specs/03-state-machines.md: "Occupied --> Available : order Completed or Cancelled"
+            if (order.TableId is not null)
+            {
+                var table = await db.DiningTables.FindAsync([order.TableId.Value], ct);
+                if (table is not null)
+                {
+                    table.Status = TableStatus.Available;
+                }
+            }
+
+            order.RowVersion++;
+
+            db.OrderEvents.Add(new OrderEvent
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantContext.TenantId,
+                OrderId = orderId,
+                EventType = OrderEventType.Completed,
+                Details = JsonSerializer.Serialize(new
+                {
+                    subtotal,
+                    serviceAmount,
+                    taxAmount,
+                    discountAmount,
+                    total,
+                }),
+                PerformedBy = tenantContext.UserId,
+                PerformedAt = clock.UtcNow,
+            });
+
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(new
+            {
+                orderId = order.Id,
+                status = "Completed",
+                subtotal,
+                serviceAmount,
+                taxAmount,
+                discountAmount,
+                total,
+                rowVersion = order.RowVersion,
+            });
+        });
+
+        // --- Receipt (read-only, render snapshotted order) ---
+        group.MapGet("/orders/{orderId:guid}/receipt", async (Guid orderId, PosDbContext db, IClock clock, CancellationToken ct) =>
+        {
+            var order = await db.Orders.FindAsync([orderId], ct);
+            if (order is null) return Results.NotFound();
+            if (order.Status != OrderStatus.Completed)
+                return Results.Problem(statusCode: 409, title: "Order is not closed yet");
+
+            var lines = await db.OrderLines
+                .Where(ol => ol.OrderId == orderId)
+                .OrderBy(ol => ol.Sequence)
+                .ToListAsync(ct);
+
+            var lineIds = lines.Select(l => l.Id).ToHashSet();
+            var modifiers = lineIds.Count > 0
+                ? await db.OrderLineModifiers.Where(olm => lineIds.Contains(olm.OrderLineId)).ToListAsync(ct)
+                : [];
+
+            var closeEvent = await db.OrderEvents
+                .Where(oe => oe.OrderId == orderId && oe.EventType == OrderEventType.Completed)
+                .OrderByDescending(oe => oe.PerformedAt)
+                .FirstOrDefaultAsync(ct);
+
+            var closedAt = closeEvent?.PerformedAt ?? clock.UtcNow;
+
+            var linesDto = lines
+                .Where(l => l.Status != OrderLineStatus.Voided)
+                .Select(l => new
+                {
+                    id = l.Id,
+                    itemId = l.ItemId,
+                    quantity = l.Quantity,
+                    unitPrice = l.UnitPrice,
+                    lineTotal = l.UnitPrice * l.Quantity,
+                    status = l.Status.ToString(),
+                    modifiers = modifiers
+                        .Where(m => m.OrderLineId == l.Id)
+                        .Select(m => new { name = m.Name, priceDelta = m.PriceDelta }),
+                });
+
+            return Results.Ok(new
+            {
+                branchId = order.BranchId,
+                orderId = order.Id,
+                tableId = order.TableId,
+                dailyNo = order.DailyNo,
+                waiterId = order.WaiterId,
+                orderType = order.OrderType.ToString(),
+                closedAt,
+                lines = linesDto,
+                subtotal = order.SubtotalAmount,
+                serviceAmount = order.ServiceAmount,
+                taxAmount = order.TaxAmount,
+                discountAmount = order.DiscountAmount,
+                total = order.TotalAmount,
+            });
+        });
+
+        // --- Print receipt to ESC/POS network printer ---
+        group.MapPost("/orders/{orderId:guid}/receipt/print", async (Guid orderId, PosDbContext db, CancellationToken ct) =>
+        {
+            var order = await db.Orders.FindAsync([orderId], ct);
+            if (order is null) return Results.NotFound();
+            if (order.Status != OrderStatus.Completed)
+                return Results.Problem(statusCode: 409, title: "Order is not closed yet");
+
+            var branchSettings = await db.BranchSettings
+                .FirstOrDefaultAsync(bs => bs.BranchId == order.BranchId, ct);
+
+            if (branchSettings is null || string.IsNullOrWhiteSpace(branchSettings.PrinterIp) || branchSettings.PrinterPort is null)
+                return Results.Problem(statusCode: 400, title: "Printer not configured for this branch");
+
+            var lines = await db.OrderLines
+                .Where(ol => ol.OrderId == orderId)
+                .OrderBy(ol => ol.Sequence)
+                .ToListAsync(ct);
+
+            var lineIds = lines.Select(l => l.Id).ToHashSet();
+            var modifiers = lineIds.Count > 0
+                ? await db.OrderLineModifiers.Where(olm => lineIds.Contains(olm.OrderLineId)).ToListAsync(ct)
+                : [];
+
+            var closeEvent = await db.OrderEvents
+                .Where(oe => oe.OrderId == orderId && oe.EventType == OrderEventType.Completed)
+                .OrderByDescending(oe => oe.PerformedAt)
+                .FirstOrDefaultAsync(ct);
+
+            var bytes = BuildReceiptBytes(order, branchSettings, lines, modifiers, closeEvent?.PerformedAt);
+
+            using var tcpClient = new TcpClient();
+            await tcpClient.ConnectAsync(IPAddress.Parse(branchSettings.PrinterIp), branchSettings.PrinterPort.Value, ct);
+            await using var stream = tcpClient.GetStream();
+            await stream.WriteAsync(bytes, ct);
+            await stream.FlushAsync(ct);
+
+            return Results.Ok(new { orderId, printed = true });
+        });
+
         return app;
+    }
+
+    private static byte[] BuildReceiptBytes(Order order, BranchSettings branchSettings, List<OrderLine> lines, List<OrderLineModifier> modifiers, DateTime? closedAt)
+    {
+        var encoding = Encoding.UTF8;
+        var parts = new List<byte>();
+
+        void Ws(string s) => parts.AddRange(encoding.GetBytes(s + "\n"));
+        void Wb(byte[] b) => parts.AddRange(b);
+
+        Wb([0x1B, 0x40]); // Initialize printer (ESC @)
+        Wb([0x1B, 0x61, 0x01]); // Center align (ESC a 1)
+        Wb([0x1B, 0x45, 0x01]); // Bold on (ESC E 1)
+        Ws($"Branch: {branchSettings.BranchId}");
+        Wb([0x1B, 0x61, 0x00]); // Left align (ESC a 0)
+        Wb([0x1B, 0x45, 0x00]); // Bold off (ESC E 0)
+        Ws($"Order: {order.Id}");
+        Ws(order.TableId is not null ? $"Table: {order.TableId}" : $"Takeaway: {order.DailyNo}");
+        Ws($"Waiter: {order.WaiterId}");
+        Ws($"Date: {closedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A"}");
+        Ws(new string('-', 32));
+
+        foreach (var line in lines.Where(l => l.Status != OrderLineStatus.Voided))
+        {
+            var lineTotal = line.UnitPrice * line.Quantity;
+            Ws($"{line.Quantity}x {line.ItemId} ... {lineTotal:F2}");
+            foreach (var mod in modifiers.Where(m => m.OrderLineId == line.Id))
+            {
+                Ws($"  + {mod.Name} {mod.PriceDelta:F2}");
+            }
+        }
+
+        Ws(new string('-', 32));
+        Ws($"Subtotal: {order.SubtotalAmount:F2}");
+        Ws($"Service: {order.ServiceAmount:F2}");
+        Ws($"Tax: {order.TaxAmount:F2}");
+        Ws($"Discount: {order.DiscountAmount:F2}");
+        Ws($"TOTAL: {order.TotalAmount:F2}");
+        Ws("");
+        Ws("");
+        Wb([0x1D, 0x56, 0x00]); // Full cut (GS V 0)
+
+        return parts.ToArray();
     }
 }
 
@@ -713,3 +974,5 @@ internal sealed record UpdateDraftLineRequest(int Quantity, List<Guid> ModifierI
 internal sealed record VoidLineRequest(string Reason, int RowVersion);
 
 internal sealed record IncreaseQuantityRequest(int QuantityDelta, int RowVersion);
+
+internal sealed record CloseOrderRequest(int RowVersion);
