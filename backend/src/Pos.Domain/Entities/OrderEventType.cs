@@ -9,4 +9,7 @@ public enum OrderEventType
     Refired,
     QuantityChanged,
     Completed,
+    StartedPreparing,
+    MarkedReady,
+    Served,
 }

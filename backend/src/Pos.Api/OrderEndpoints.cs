@@ -358,17 +358,17 @@ internal static class OrderEndpoints
         // --- KDS read: tickets for a station ---
         group.MapGet("/kds/stations/{stationId:guid}/tickets", async (Guid stationId, PosDbContext db, CancellationToken ct) =>
         {
-            var firedLines = await db.OrderLines
-                .Where(ol => ol.StationId == stationId && ol.Status == OrderLineStatus.Fired)
+            var activeLines = await db.OrderLines
+                .Where(ol => ol.StationId == stationId && (ol.Status == OrderLineStatus.Fired || ol.Status == OrderLineStatus.Preparing))
                 .OrderBy(ol => ol.Sequence)
                 .ToListAsync(ct);
 
-            var lineIds = firedLines.Select(l => l.Id).ToHashSet();
+            var lineIds = activeLines.Select(l => l.Id).ToHashSet();
             var modifiers = lineIds.Count > 0
                 ? await db.OrderLineModifiers.Where(olm => lineIds.Contains(olm.OrderLineId)).ToListAsync(ct)
                 : [];
 
-            var tickets = firedLines
+            var tickets = activeLines
                 .GroupBy(l => new { l.OrderId, l.StationId, FireBatchId = l.FireBatchId!.Value })
                 .OrderBy(g => g.Min(l => l.Sequence)) // oldest first by earliest line sequence
                 .Select(g => new
@@ -390,6 +390,128 @@ internal static class OrderEndpoints
                 });
 
             return Results.Ok(tickets);
+        });
+
+        // --- KDS: start preparing (Fired -> Preparing) ---
+        group.MapPost("/kds/lines/{lineId:guid}/start-preparing", async (Guid lineId, PosDbContext db, ITenantContext tenantContext, IClock clock, IHubContext<PosHub> hubContext, CancellationToken ct) =>
+        {
+            var line = await db.OrderLines.FindAsync([lineId], ct);
+            if (line is null) return Results.NotFound();
+            if (line.Status != OrderLineStatus.Fired)
+                return Results.Problem(statusCode: 409, title: "Line is not Fired");
+
+            var order = await db.Orders.FindAsync([line.OrderId], ct);
+
+            line.Status = OrderLineStatus.Preparing;
+
+            var orderEvent = new OrderEvent
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantContext.TenantId,
+                OrderId = line.OrderId,
+                OrderLineId = line.Id,
+                EventType = OrderEventType.StartedPreparing,
+                Details = JsonSerializer.Serialize(new { }),
+                PerformedBy = tenantContext.UserId,
+                PerformedAt = clock.UtcNow,
+            };
+            db.OrderEvents.Add(orderEvent);
+
+            await db.SaveChangesAsync(ct);
+
+            if (order is not null)
+            {
+                await hubContext.Clients.Group($"waiter:{order.WaiterId}").SendAsync("LineStatusChanged", new
+                {
+                    orderId = order.Id,
+                    lineId = line.Id,
+                    status = line.Status.ToString(),
+                    at = clock.UtcNow.ToString("O"),
+                }, ct);
+            }
+
+            return Results.Ok(new { lineId = line.Id, status = line.Status.ToString(), orderId = line.OrderId });
+        });
+
+        // --- KDS: mark ready (Preparing -> Ready) ---
+        group.MapPost("/kds/lines/{lineId:guid}/ready", async (Guid lineId, PosDbContext db, ITenantContext tenantContext, IClock clock, IHubContext<PosHub> hubContext, CancellationToken ct) =>
+        {
+            var line = await db.OrderLines.FindAsync([lineId], ct);
+            if (line is null) return Results.NotFound();
+            if (line.Status != OrderLineStatus.Preparing)
+                return Results.Problem(statusCode: 409, title: "Line is not Preparing");
+
+            var order = await db.Orders.FindAsync([line.OrderId], ct);
+
+            line.Status = OrderLineStatus.Ready;
+
+            var orderEvent = new OrderEvent
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantContext.TenantId,
+                OrderId = line.OrderId,
+                OrderLineId = line.Id,
+                EventType = OrderEventType.MarkedReady,
+                Details = JsonSerializer.Serialize(new { }),
+                PerformedBy = tenantContext.UserId,
+                PerformedAt = clock.UtcNow,
+            };
+            db.OrderEvents.Add(orderEvent);
+
+            await db.SaveChangesAsync(ct);
+
+            if (order is not null)
+            {
+                await hubContext.Clients.Group($"waiter:{order.WaiterId}").SendAsync("LineStatusChanged", new
+                {
+                    orderId = order.Id,
+                    lineId = line.Id,
+                    status = line.Status.ToString(),
+                    at = clock.UtcNow.ToString("O"),
+                }, ct);
+            }
+
+            return Results.Ok(new { lineId = line.Id, status = line.Status.ToString(), orderId = line.OrderId });
+        });
+
+        // --- Waiter: serve (Ready -> Served) ---
+        group.MapPost("/orders/{orderId:guid}/lines/{lineId:guid}/serve", async (Guid orderId, Guid lineId, PosDbContext db, ITenantContext tenantContext, IClock clock, IHubContext<PosHub> hubContext, CancellationToken ct) =>
+        {
+            var line = await db.OrderLines.FirstOrDefaultAsync(ol => ol.Id == lineId && ol.OrderId == orderId, ct);
+            if (line is null) return Results.NotFound();
+            if (line.Status != OrderLineStatus.Ready)
+                return Results.Problem(statusCode: 409, title: "Line is not Ready");
+
+            line.Status = OrderLineStatus.Served;
+
+            var orderEvent = new OrderEvent
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantContext.TenantId,
+                OrderId = orderId,
+                OrderLineId = line.Id,
+                EventType = OrderEventType.Served,
+                Details = JsonSerializer.Serialize(new { }),
+                PerformedBy = tenantContext.UserId,
+                PerformedAt = clock.UtcNow,
+            };
+            db.OrderEvents.Add(orderEvent);
+
+            await db.SaveChangesAsync(ct);
+
+            var order = await db.Orders.FindAsync([orderId], ct);
+            if (order is not null)
+            {
+                await hubContext.Clients.Group($"waiter:{order.WaiterId}").SendAsync("LineStatusChanged", new
+                {
+                    orderId,
+                    lineId = line.Id,
+                    status = line.Status.ToString(),
+                    at = clock.UtcNow.ToString("O"),
+                }, ct);
+            }
+
+            return Results.Ok(new { lineId = line.Id, status = line.Status.ToString(), orderId });
         });
 
         return app;
