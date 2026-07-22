@@ -514,6 +514,192 @@ internal static class OrderEndpoints
             return Results.Ok(new { lineId = line.Id, status = line.Status.ToString(), orderId });
         });
 
+        // --- Void a line (Fired/Preparing/Ready/Served) ---
+        group.MapPost("/orders/{orderId:guid}/lines/{lineId:guid}/void", async (Guid orderId, Guid lineId, VoidLineRequest body, PosDbContext db, ITenantContext tenantContext, IClock clock, IHubContext<PosHub> hubContext, CancellationToken ct) =>
+        {
+            var order = await db.Orders.FindAsync([orderId], ct);
+            if (order is null) return Results.NotFound();
+
+            var line = await db.OrderLines.FirstOrDefaultAsync(ol => ol.Id == lineId && ol.OrderId == orderId, ct);
+            if (line is null) return Results.NotFound();
+
+            if (string.IsNullOrWhiteSpace(body.Reason))
+                return Results.Problem(statusCode: 400, title: "Reason is required");
+
+            if (line.Status is OrderLineStatus.Draft or OrderLineStatus.Voided)
+                return Results.Problem(statusCode: 409, title: "Line cannot be voided in this state");
+
+            if (order.RowVersion != body.RowVersion)
+                return Results.Problem(statusCode: 409, title: "Concurrency conflict", detail: "Stale row version");
+
+            var isManagerOrOwner = tenantContext.Role is Role.Owner or Role.Manager;
+            var isOwnWaiter = tenantContext.Role == Role.Waiter && order.WaiterId == tenantContext.UserId;
+
+            var canVoid = line.Status switch
+            {
+                OrderLineStatus.Fired => isManagerOrOwner || isOwnWaiter,
+                OrderLineStatus.Preparing or OrderLineStatus.Ready or OrderLineStatus.Served => isManagerOrOwner,
+                _ => false,
+            };
+
+            if (!canVoid)
+                return Results.Problem(statusCode: 403, title: "Insufficient permissions");
+
+            var fromStatus = line.Status;
+            var wasteFlag = fromStatus == OrderLineStatus.Preparing;
+
+            line.Status = OrderLineStatus.Voided;
+            order.RowVersion++;
+
+            var orderEvent = new OrderEvent
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantContext.TenantId,
+                OrderId = orderId,
+                OrderLineId = line.Id,
+                EventType = OrderEventType.Voided,
+                Reason = body.Reason,
+                Details = JsonSerializer.Serialize(new
+                {
+                    fromStatus = fromStatus.ToString(),
+                    wasteFlag,
+                }),
+                PerformedBy = tenantContext.UserId,
+                PerformedAt = clock.UtcNow,
+            };
+            db.OrderEvents.Add(orderEvent);
+
+            await db.SaveChangesAsync(ct);
+
+            // Broadcast after save — best-effort
+            await hubContext.Clients.Group($"station:{line.StationId}").SendAsync("OrderLineVoided", new
+            {
+                orderId,
+                lineId,
+                itemId = line.ItemId,
+                fireBatchId = line.FireBatchId,
+            }, ct);
+
+            await hubContext.Clients.Group($"waiter:{order.WaiterId}").SendAsync("LineStatusChanged", new
+            {
+                orderId,
+                lineId,
+                status = "Voided",
+                at = clock.UtcNow.ToString("O"),
+            }, ct);
+
+            return Results.Ok(new { lineId, status = "Voided", rowVersion = order.RowVersion });
+        });
+
+        // --- Increase quantity on a Fired/Preparing line ---
+        group.MapPost("/orders/{orderId:guid}/lines/{lineId:guid}/increase-quantity", async (Guid orderId, Guid lineId, IncreaseQuantityRequest body, PosDbContext db, ITenantContext tenantContext, IClock clock, IHubContext<PosHub> hubContext, CancellationToken ct) =>
+        {
+            var order = await db.Orders.FindAsync([orderId], ct);
+            if (order is null) return Results.NotFound();
+
+            var line = await db.OrderLines.FirstOrDefaultAsync(ol => ol.Id == lineId && ol.OrderId == orderId, ct);
+            if (line is null) return Results.NotFound();
+
+            if (body.QuantityDelta <= 0)
+                return Results.Problem(statusCode: 400, title: "Quantity delta must be positive");
+
+            if (line.Status is OrderLineStatus.Draft or OrderLineStatus.Ready or OrderLineStatus.Served or OrderLineStatus.Voided)
+                return Results.Problem(statusCode: 409, title: "Line cannot be modified in this state");
+
+            if (order.RowVersion != body.RowVersion)
+                return Results.Problem(statusCode: 409, title: "Concurrency conflict", detail: "Stale row version");
+
+            var isManagerOrOwner = tenantContext.Role is Role.Owner or Role.Manager;
+            var isOwnWaiter = tenantContext.Role == Role.Waiter && order.WaiterId == tenantContext.UserId;
+
+            var canModify = line.Status switch
+            {
+                OrderLineStatus.Fired => isManagerOrOwner || isOwnWaiter,
+                OrderLineStatus.Preparing => isManagerOrOwner,
+                _ => false,
+            };
+
+            if (!canModify)
+                return Results.Problem(statusCode: 403, title: "Insufficient permissions");
+
+            var menuItem = await db.MenuItems.FindAsync([line.ItemId], ct);
+            if (menuItem is null) return Results.Problem(statusCode: 400, title: "Menu item not found");
+            if (menuItem.Availability != Availability.Available)
+                return Results.Problem(statusCode: 400, title: "Item not available", detail: "Item is OutOfStock or Hidden");
+
+            var maxSequence = await db.OrderLines
+                .Where(ol => ol.OrderId == orderId)
+                .MaxAsync(ol => (int?)ol.Sequence, ct) ?? 0;
+
+            var newFireBatchId = Guid.NewGuid();
+            var newLine = new OrderLine
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantContext.TenantId,
+                OrderId = orderId,
+                ItemId = line.ItemId,
+                StationId = line.StationId,
+                Sequence = maxSequence + 1,
+                Quantity = body.QuantityDelta,
+                UnitPrice = menuItem.Price,
+                Status = OrderLineStatus.Fired,
+                FireBatchId = newFireBatchId,
+            };
+            db.OrderLines.Add(newLine);
+
+            order.RowVersion++;
+
+            var orderEvent = new OrderEvent
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantContext.TenantId,
+                OrderId = orderId,
+                OrderLineId = line.Id,
+                EventType = OrderEventType.QuantityChanged,
+                Details = JsonSerializer.Serialize(new
+                {
+                    originalLineId = line.Id,
+                    newLineId = newLine.Id,
+                    quantityDelta = body.QuantityDelta,
+                    newFireBatchId,
+                }),
+                PerformedBy = tenantContext.UserId,
+                PerformedAt = clock.UtcNow,
+            };
+            db.OrderEvents.Add(orderEvent);
+
+            await db.SaveChangesAsync(ct);
+
+            // Broadcast OrderFired to the new line's station group
+            await hubContext.Clients.Group($"station:{line.StationId}").SendAsync("OrderFired", new
+            {
+                fireBatchId = newFireBatchId,
+                orderId,
+                lines = new[]
+                {
+                    new
+                    {
+                        id = newLine.Id,
+                        itemId = newLine.ItemId,
+                        sequence = newLine.Sequence,
+                        quantity = newLine.Quantity,
+                        unitPrice = newLine.UnitPrice,
+                        modifiers = Array.Empty<object>(),
+                    },
+                },
+            }, ct);
+
+            return Results.Created($"/orders/{orderId}/lines/{newLine.Id}", new
+            {
+                lineId = newLine.Id,
+                sequence = newLine.Sequence,
+                unitPrice = newLine.UnitPrice,
+                quantity = newLine.Quantity,
+                fireBatchId = newFireBatchId,
+                rowVersion = order.RowVersion,
+            });
+        });
+
         return app;
     }
 }
@@ -523,3 +709,7 @@ internal sealed record FireBatchRequest(int RowVersion);
 internal sealed record CreateTakeawayOrderRequest(string? CustomerName);
 internal sealed record AddDraftLineRequest(Guid MenuItemId, int Quantity, List<Guid> ModifierIds, int RowVersion);
 internal sealed record UpdateDraftLineRequest(int Quantity, List<Guid> ModifierIds, int RowVersion);
+
+internal sealed record VoidLineRequest(string Reason, int RowVersion);
+
+internal sealed record IncreaseQuantityRequest(int QuantityDelta, int RowVersion);
