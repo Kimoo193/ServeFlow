@@ -1,0 +1,36 @@
+<main class="wrap">
+  <form class="card" (ngSubmit)="connect()">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="word">ServeFlow</span>
+      <span class="kicker">Kitchen Display</span>
+    </div>
+
+    <p class="lead">Connect this screen to a station.</p>
+
+    <label>Tenant ID
+      <input name="tenantId" [ngModel]="tenantId()" (ngModelChange)="tenantId.set($event)"
+             autocomplete="off" spellcheck="false" placeholder="00000000-0000-…" />
+    </label>
+    <label>Branch ID
+      <input name="branchId" [ngModel]="branchId()" (ngModelChange)="branchId.set($event)"
+             autocomplete="off" spellcheck="false" placeholder="00000000-0000-…" />
+    </label>
+    <label>Station ID
+      <input name="stationId" [ngModel]="stationId()" (ngModelChange)="stationId.set($event)"
+             autocomplete="off" spellcheck="false" placeholder="the station this screen shows" />
+    </label>
+    <label>User ID
+      <input name="userId" [ngModel]="userId()" (ngModelChange)="userId.set($event)"
+             autocomplete="off" spellcheck="false" placeholder="staff id bumping the tickets" />
+    </label>
+
+    @if (error()) {
+      <p class="error" role="alert">{{ error() }}</p>
+    }
+
+    <button type="submit" [disabled]="busy()">
+      {{ busy() ? 'Connecting…' : 'Open station board' }}
+    </button>
+  </form>
+</main>

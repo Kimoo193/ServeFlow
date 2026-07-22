@@ -1,0 +1,10 @@
+/* Service Spruce tokens are the single source of truth, shared across apps. */
+@import '../../shared/src/design/service-spruce.css';
+
+html, body {
+  height: 100%;
+  background: var(--sf-kds-bg);
+  color: var(--sf-kds-text);
+}
+
+body { overflow: hidden; } /* the board owns its own scrolling */

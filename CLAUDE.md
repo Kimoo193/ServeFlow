@@ -36,8 +36,11 @@ win — flag the conflict.
 - **Backend:** .NET 10, ASP.NET Core, Clean Architecture, EF Core, PostgreSQL 16 (RLS),
   Redis, SignalR, xUnit.
 - **Auth:** KimooKit (self-hosted auth library — JWT, roles/permissions, tenant membership).
-- **Frontend (later slices):** Flutter (waiter tablet); React 19 + Vite + TypeScript
-  (KDS, cashier, admin).
+- **Frontend:** Flutter (waiter tablet); **Angular 20+** standalone/signals workspace
+  (KDS, cashier, manager) under `frontend/`, sharing one `@serveflow/shared` library and
+  the "Service Spruce" design system. *(Chosen over the originally-planned React 19 + Vite:
+  RxJS fits SignalR live streams, Reactive Forms fit the Manager config surface, and one
+  opinionated workspace keeps the three apps consistent.)* SignalR via `@microsoft/signalr`.
 - **Infra:** Docker Compose (Postgres + Redis) for local; Coolify as deploy target.
 
 ## Solution layout

@@ -1,0 +1,98 @@
+:host { display: block; }
+
+.ticket {
+  --spine: var(--sf-fired);
+  position: relative;
+  background: var(--sf-kds-panel);
+  border: 1px solid var(--sf-kds-line);
+  border-radius: var(--sf-radius);
+  overflow: hidden;
+}
+
+/* The signature: a thick status-coloured spine on the inline-start edge. */
+.ticket::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 8px;
+  background: var(--spine);
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 12px 14px 10px 20px;
+  border-bottom: 1px solid var(--sf-kds-line);
+}
+.order { font-weight: 800; letter-spacing: -0.01em; font-size: 18px; }
+.batch {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--sf-kds-text-dim);
+}
+.timer {
+  margin-inline-start: auto;
+  font-size: 17px; font-weight: 500;
+  padding: 2px 8px; border-radius: 6px;
+}
+.timer[data-heat='calm'] { color: var(--sf-kds-text-dim); }
+.timer[data-heat='warm'] { color: #10161A; background: var(--sf-preparing); }
+.timer[data-heat='hot'] {
+  color: #fff; background: var(--sf-voided);
+  animation: pulse-hot 1.4s ease-in-out infinite;
+}
+
+.lines { list-style: none; margin: 0; padding: 6px 0; }
+.line { padding: 8px 14px 8px 20px; }
+.line + .line { border-top: 1px solid rgba(255, 255, 255, 0.04); }
+
+.line-main { display: flex; align-items: center; gap: 10px; }
+.qty {
+  min-width: 34px; font-size: 18px; font-weight: 600;
+  color: var(--sf-mint);
+}
+.name { font-size: 17px; font-weight: 500; flex: 1; }
+
+.mods {
+  list-style: none; margin: 4px 0 0; padding-inline-start: 44px;
+  font-size: 13px; color: var(--sf-kds-text-dim);
+}
+
+.act {
+  font: inherit; font-weight: 700; font-size: 13px;
+  padding: 7px 16px; border: none; border-radius: 999px; cursor: pointer;
+  color: #06231D;
+}
+.act.start { background: var(--sf-fired); color: #04122E; }
+.act.ready { background: var(--sf-ready); color: #04210F; }
+.act:active { transform: translateY(1px); }
+
+.void-tag {
+  font-weight: 800; font-size: 12px; letter-spacing: 0.12em;
+  color: #fff; background: var(--sf-voided);
+  padding: 4px 10px; border-radius: 6px;
+}
+
+/* New ticket: one calm mint pulse of the spine + a soft rise-in. */
+.ticket.is-new { animation: rise-in 320ms ease-out; }
+.ticket.is-new::before { animation: spine-pulse 1200ms ease-out; }
+
+/* Void: the line flashes red, then the board collapses it out. */
+.line.voiding { animation: void-flash 1400ms ease-out; }
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes spine-pulse {
+  0%, 100% { box-shadow: none; }
+  30%      { box-shadow: 0 0 18px 2px var(--sf-mint); }
+}
+@keyframes pulse-hot {
+  50% { opacity: 0.72; }
+}
+@keyframes void-flash {
+  0%, 60% { background: rgba(239, 68, 68, 0.22); }
+  100%    { background: transparent; }
+}

@@ -27,13 +27,18 @@ The UI is a projection of the domain state — never invented separately.
 
 - **Waiter (Flutter tablet)** — fast, one-handed, usable while standing and moving. Big
   tap targets, minimal typing, menu reachable in ≤ 2 taps, draft-safe if the network drops.
-- **KDS (large screen, React)** — glanceable from across the kitchen. Colour and status
+- **KDS (large screen, Angular)** — glanceable from across the kitchen. Colour and status
   over text. Zero navigation, zero distraction — tickets in, bump out. Loud, unmissable
   alerts for NEW / VOID / CHANGE.
-- **Cashier (tablet/desktop, React)** — review-and-close focused: open orders, bill review,
+- **Cashier (tablet/desktop, Angular)** — review-and-close focused: open orders, bill review,
   print, close. Payment capture is Phase 2.
-- **Manager (desktop, React) — minimal in Phase 1** — menu, tables/sections, staff, and
+- **Manager (desktop, Angular) — minimal in Phase 1** — menu, tables/sections, staff, and
   read-only order history. Full dashboards and reports are Phase 3.
+
+> **Web stack note:** the three web surfaces are built as one Angular workspace under
+> `frontend/` (standalone components + signals), sharing a `@serveflow/shared` library and
+> the "Service Spruce" design system where the palette encodes the `OrderLine` state machine.
+> This supersedes the earlier "React 19 + Vite" note. The waiter app stays Flutter.
 
 ## 3. Waiter app — screen flow
 

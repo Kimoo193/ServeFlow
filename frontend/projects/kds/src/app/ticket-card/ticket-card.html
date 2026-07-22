@@ -1,0 +1,38 @@
+<article
+  class="ticket"
+  [class.is-new]="ticket().isNew"
+  [style.--spine]="spineColor()"
+>
+  <header class="head">
+    <span class="order">#{{ shortOrder() }}</span>
+    <span class="batch">batch {{ shortBatch() }}</span>
+    <span class="timer sf-mono" [attr.data-heat]="heat()">{{ clock() }}</span>
+  </header>
+
+  <ul class="lines">
+    @for (line of ticket().lines; track line.id) {
+      <li class="line" [class.voiding]="line.voiding">
+        <div class="line-main">
+          <span class="qty sf-mono">{{ line.quantity }}×</span>
+          <span class="name">{{ itemName(line) }}</span>
+
+          @if (line.voiding) {
+            <span class="void-tag">VOID</span>
+          } @else if (line.status === 'Fired') {
+            <button class="act start" type="button" (click)="start.emit(line)">Start</button>
+          } @else if (line.status === 'Preparing') {
+            <button class="act ready" type="button" (click)="ready.emit(line)">Ready</button>
+          }
+        </div>
+
+        @if (line.modifiers.length) {
+          <ul class="mods">
+            @for (m of line.modifiers; track m.name) {
+              <li>+ {{ m.name }}</li>
+            }
+          </ul>
+        }
+      </li>
+    }
+  </ul>
+</article>

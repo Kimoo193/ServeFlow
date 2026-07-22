@@ -75,6 +75,25 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
 
 builder.Services.AddAuthorization();
 
+// CORS for the browser front-ends (KDS/Cashier/Manager run on their own origin).
+// Origins come from config (Cors:AllowedOrigins); default is the Angular dev server.
+// AllowCredentials is required for the SignalR handshake. The GetSection read lives
+// inside the policy-builder delegate, which the CORS provider invokes lazily on first
+// use — not an early config capture (see the JwtBearerOptions note above).
+const string CorsPolicyName = "PosFrontend";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(CorsPolicyName, policy =>
+    {
+        var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+        policy
+            .WithOrigins(origins is { Length: > 0 } ? origins : ["http://localhost:4200"])
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -130,6 +149,8 @@ if (app.Environment.IsDevelopment())
 // Registered first so it wraps every subsequent middleware, including
 // TenantSessionMiddleware and the endpoint handlers below.
 app.UseExceptionHandler();
+
+app.UseCors(CorsPolicyName);
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -1,0 +1,72 @@
+/* ============================================================================
+   ServeFlow — "Service Spruce" design tokens
+   The palette IS the OrderLine state machine (specs/03-state-machines.md).
+   Shared by KDS, Cashier, and Manager. One color means one thing everywhere.
+   ============================================================================ */
+
+@import './fonts.css';
+
+:root {
+  /* Brand — spruce sits deliberately OUTSIDE the status hues so it never
+     competes with a state color. Mint is the "flow" pulse, used sparingly. */
+  --sf-spruce:       #0F5F52;
+  --sf-spruce-deep:  #0A463C;
+  --sf-mint:         #34D8B4;
+
+  /* Light surfaces (Cashier / Manager) */
+  --sf-porcelain:    #F5F3EF;
+  --sf-ink:          #1A2420;
+
+  /* Dark surfaces (KDS wall screen) */
+  --sf-kds-bg:       #10161A;
+  --sf-kds-panel:    #182126;
+  --sf-kds-panel-2:  #1E2A30;
+  --sf-kds-line:     #2A3940;
+  --sf-kds-text:     #E7EEF0;
+  --sf-kds-text-dim: #8FA3AB;
+
+  /* Status spine — the six OrderLine states. Fixed for legibility. */
+  --sf-draft:     #8A97A0;
+  --sf-fired:     #5B8DEF;
+  --sf-preparing: #F5A524;
+  --sf-ready:     #2FBF71;
+  --sf-served:    #5A6B66;
+  --sf-voided:    #EF4444;
+
+  /* Type */
+  --sf-font-ui:   'Rubik', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --sf-font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  /* Shape & rhythm */
+  --sf-radius:    12px;
+  --sf-radius-sm: 8px;
+  --sf-gap:       16px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--sf-font-ui);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Tabular figures everywhere numbers matter (counts, money, timers). */
+.sf-nums, .sf-mono { font-variant-numeric: tabular-nums; }
+.sf-mono { font-family: var(--sf-font-mono); }
+
+/* Keyboard focus is always visible — part of the quality floor. */
+:where(button, a, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--sf-mint);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

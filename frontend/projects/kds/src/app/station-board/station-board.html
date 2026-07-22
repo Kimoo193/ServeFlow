@@ -1,0 +1,34 @@
+<div class="screen">
+  <header class="topbar">
+    <button class="back" type="button" (click)="leave()" aria-label="Leave station">‹</button>
+    <h1 class="station">{{ stationName() || 'Station' }}</h1>
+
+    <span class="conn" [attr.data-state]="connection()">
+      <span class="dot" aria-hidden="true"></span>
+      {{ connection() }}
+    </span>
+    <span class="count sf-mono">{{ tickets().length }} active</span>
+  </header>
+
+  @if (error()) {
+    <p class="banner" role="alert">{{ error() }}</p>
+  }
+
+  @if (loading() && tickets().length === 0) {
+    <p class="empty">Loading the board…</p>
+  } @else if (tickets().length === 0) {
+    <p class="empty">All clear. New tickets appear here the moment they’re fired.</p>
+  } @else {
+    <section class="board" aria-label="Active tickets">
+      @for (ticket of tickets(); track ticket.orderId + ':' + ticket.fireBatchId) {
+        <app-ticket-card
+          [ticket]="ticket"
+          [names]="itemNames()"
+          [now]="now()"
+          (start)="onStart($event)"
+          (ready)="onReady($event)"
+        />
+      }
+    </section>
+  }
+</div>

@@ -1,0 +1,84 @@
+:host { display: block; height: 100%; }
+
+.screen {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--sf-kds-bg);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--sf-kds-line);
+  background: linear-gradient(var(--sf-kds-panel), var(--sf-kds-bg));
+}
+
+.back {
+  font-size: 22px; line-height: 1;
+  width: 36px; height: 36px;
+  color: var(--sf-kds-text-dim);
+  background: transparent;
+  border: 1px solid var(--sf-kds-line);
+  border-radius: 8px; cursor: pointer;
+}
+
+.station {
+  margin: 0;
+  font-size: 26px; font-weight: 900; letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.conn {
+  margin-inline-start: auto;
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--sf-kds-text-dim);
+}
+.conn .dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--sf-kds-text-dim);
+}
+.conn[data-state='connected'] .dot { background: var(--sf-ready); }
+.conn[data-state='connecting'] .dot,
+.conn[data-state='reconnecting'] .dot {
+  background: var(--sf-preparing);
+  animation: blink 1s ease-in-out infinite;
+}
+.conn[data-state='disconnected'] .dot { background: var(--sf-voided); }
+
+.count {
+  font-size: 13px;
+  color: var(--sf-kds-text-dim);
+}
+
+.banner {
+  margin: 0;
+  padding: 10px 20px;
+  font-size: 13px;
+  color: #fff;
+  background: rgba(239, 68, 68, 0.16);
+  border-bottom: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.empty {
+  margin: auto;
+  max-width: 30ch;
+  text-align: center;
+  color: var(--sf-kds-text-dim);
+  font-size: 17px;
+}
+
+.board {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--sf-gap);
+  align-content: start;
+}
+
+@keyframes blink { 50% { opacity: 0.3; } }
