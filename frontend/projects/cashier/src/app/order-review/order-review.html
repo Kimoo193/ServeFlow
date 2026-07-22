@@ -1,0 +1,169 @@
+<div class="screen">
+  <header class="topbar">
+    <a class="back" routerLink="/orders" aria-label="Back to open orders">‹</a>
+    <h1 class="title">
+      @if (viewState() === 'closed') {
+        Bill · closed
+      } @else {
+        Bill review
+      }
+    </h1>
+    <span class="order-id sf-mono">#{{ orderId().slice(0, 4).toUpperCase() }}</span>
+  </header>
+
+  @if (error()) {
+    <p class="banner error-banner" role="alert">{{ error() }}</p>
+  }
+  @if (closeError()) {
+    <p class="banner close-error-banner" role="alert">{{ closeError() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="empty">Loading…</p>
+
+  } @else if (viewState() === 'preview') {
+    @let p = preview();
+    @if (p) {
+      <div class="bill">
+        <table class="lines">
+          <thead>
+            <tr>
+              <th class="col-qty">Qty</th>
+              <th class="col-item">Item</th>
+              <th class="col-price sf-mono">Price</th>
+              <th class="col-total sf-mono">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (line of p.lines; track trackLine($index, line)) {
+              <tr>
+                <td class="col-qty sf-mono">{{ line.quantity }}×</td>
+                <td class="col-item">{{ itemName(line.itemId) }}</td>
+                <td class="col-price sf-mono">{{ line.unitPrice | number:'1.2-2' }}</td>
+                <td class="col-total sf-mono">{{ line.lineTotal | number:'1.2-2' }}</td>
+              </tr>
+              @for (mod of line.modifiers; track trackMod($index, mod)) {
+                <tr class="mod-row">
+                  <td></td>
+                  <td class="col-item mod-name">+ {{ mod.name }}</td>
+                  <td class="col-price sf-mono">{{ mod.priceDelta | number:'1.2-2' }}</td>
+                  <td></td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+
+        <div class="totals">
+          <div class="total-row">
+            <span>Subtotal</span>
+            <span class="sf-mono">{{ p.subtotal | number:'1.2-2' }}</span>
+          </div>
+          <div class="total-row">
+            <span>Service</span>
+            <span class="sf-mono">{{ p.serviceAmount | number:'1.2-2' }}</span>
+          </div>
+          <div class="total-row">
+            <span>Tax</span>
+            <span class="sf-mono">{{ p.taxAmount | number:'1.2-2' }}</span>
+          </div>
+          @if (p.discountAmount > 0) {
+            <div class="total-row">
+              <span>Discount</span>
+              <span class="sf-mono">-{{ p.discountAmount | number:'1.2-2' }}</span>
+            </div>
+          }
+          <div class="total-row grand">
+            <span>Total</span>
+            <span class="sf-mono">{{ p.total | number:'1.2-2' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        @if (!p.canClose) {
+          <p class="hint">Waiting on the kitchen — {{ p.unfinishedCount }} item{{ p.unfinishedCount === 1 ? '' : 's' }} still cooking.</p>
+        }
+        <button class="close-btn" type="button"
+                [disabled]="!p.canClose || closing()"
+                (click)="close()">
+          {{ closing() ? 'Closing…' : 'Close bill' }}
+        </button>
+      </div>
+    }
+
+  } @else if (viewState() === 'closed') {
+    @let r = receipt();
+    @if (r) {
+      <div class="bill closed-bill">
+        <p class="closed-at sf-mono">Closed {{ r.closedAt }}</p>
+
+        <table class="lines">
+          <thead>
+            <tr>
+              <th class="col-qty">Qty</th>
+              <th class="col-item">Item</th>
+              <th class="col-price sf-mono">Price</th>
+              <th class="col-total sf-mono">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (line of r.lines; track trackLine($index, line)) {
+              <tr>
+                <td class="col-qty sf-mono">{{ line.quantity }}×</td>
+                <td class="col-item">{{ itemName(line.itemId) }}</td>
+                <td class="col-price sf-mono">{{ line.unitPrice | number:'1.2-2' }}</td>
+                <td class="col-total sf-mono">{{ line.lineTotal | number:'1.2-2' }}</td>
+              </tr>
+              @for (mod of line.modifiers; track trackMod($index, mod)) {
+                <tr class="mod-row">
+                  <td></td>
+                  <td class="col-item mod-name">+ {{ mod.name }}</td>
+                  <td class="col-price sf-mono">{{ mod.priceDelta | number:'1.2-2' }}</td>
+                  <td></td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+
+        <div class="totals">
+          <div class="total-row">
+            <span>Subtotal</span>
+            <span class="sf-mono">{{ r.subtotal | number:'1.2-2' }}</span>
+          </div>
+          <div class="total-row">
+            <span>Service</span>
+            <span class="sf-mono">{{ r.serviceAmount | number:'1.2-2' }}</span>
+          </div>
+          <div class="total-row">
+            <span>Tax</span>
+            <span class="sf-mono">{{ r.taxAmount | number:'1.2-2' }}</span>
+          </div>
+          @if (r.discountAmount > 0) {
+            <div class="total-row">
+              <span>Discount</span>
+              <span class="sf-mono">-{{ r.discountAmount | number:'1.2-2' }}</span>
+            </div>
+          }
+          <div class="total-row grand">
+            <span>Total</span>
+            <span class="sf-mono">{{ r.total | number:'1.2-2' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        @if (printResult(); as msg) {
+          <p class="print-result">{{ msg }}</p>
+        }
+        <button class="print-btn" type="button"
+                [disabled]="printing()"
+                (click)="print()">
+          {{ printing() ? 'Printing…' : 'Print receipt' }}
+        </button>
+        <a class="back-link" routerLink="/orders">Back to open orders</a>
+      </div>
+    }
+  }
+</div>

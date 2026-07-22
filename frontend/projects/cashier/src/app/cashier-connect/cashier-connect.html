@@ -1,0 +1,32 @@
+<main class="wrap">
+  <form class="card" (ngSubmit)="connect()">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="word">ServeFlow</span>
+      <span class="kicker">Cashier</span>
+    </div>
+
+    <p class="lead">Connect to review and close orders.</p>
+
+    <label>Tenant ID
+      <input name="tenantId" [ngModel]="tenantId()" (ngModelChange)="tenantId.set($event)"
+             autocomplete="off" spellcheck="false" placeholder="00000000-0000-…" />
+    </label>
+    <label>Branch ID
+      <input name="branchId" [ngModel]="branchId()" (ngModelChange)="branchId.set($event)"
+             autocomplete="off" spellcheck="false" placeholder="00000000-0000-…" />
+    </label>
+    <label>User ID
+      <input name="userId" [ngModel]="userId()" (ngModelChange)="userId.set($event)"
+             autocomplete="off" spellcheck="false" placeholder="staff id billing orders" />
+    </label>
+
+    @if (error()) {
+      <p class="error" role="alert">{{ error() }}</p>
+    }
+
+    <button type="submit" [disabled]="busy()">
+      {{ busy() ? 'Connecting…' : 'Open cashier desk' }}
+    </button>
+  </form>
+</main>

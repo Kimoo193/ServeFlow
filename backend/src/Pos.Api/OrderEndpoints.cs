@@ -268,6 +268,59 @@ internal static class OrderEndpoints
             return Results.Ok(new { rowVersion = order.RowVersion });
         });
 
+        // --- Open orders (cashier list) ---
+        group.MapGet("/orders/open", async (PosDbContext db, CancellationToken ct) =>
+        {
+            var orders = await db.Orders
+                .Where(o => o.Status == OrderStatus.Open || o.Status == OrderStatus.InProgress)
+                .OrderBy(o => o.DailyNo)
+                .ToListAsync(ct);
+
+            if (orders.Count == 0)
+                return Results.Ok(Array.Empty<object>());
+
+            var orderIds = orders.Select(o => o.Id).ToHashSet();
+            var tableIds = orders.Where(o => o.TableId.HasValue).Select(o => o.TableId!.Value).ToHashSet();
+
+            var tables = tableIds.Count > 0
+                ? await db.DiningTables.Where(t => tableIds.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Label, ct)
+                : [];
+
+            var lineStats = await db.OrderLines
+                .Where(ol => orderIds.Contains(ol.OrderId))
+                .GroupBy(ol => ol.OrderId)
+                .Select(g => new
+                {
+                    OrderId = g.Key,
+                    LineCount = g.Count(l => l.Status != OrderLineStatus.Voided),
+                    UnfinishedCount = g.Count(l => l.Status == OrderLineStatus.Fired || l.Status == OrderLineStatus.Preparing),
+                })
+                .ToListAsync(ct);
+
+            var statsMap = lineStats.ToDictionary(s => s.OrderId, s => (LineCount: s.LineCount, UnfinishedCount: s.UnfinishedCount));
+
+            var result = orders.Select(o =>
+            {
+                tables.TryGetValue(o.TableId ?? Guid.Empty, out var label);
+                var stats = statsMap.GetValueOrDefault(o.Id);
+                return new
+                {
+                    id = o.Id,
+                    tableId = o.TableId,
+                    tableLabel = o.TableId.HasValue ? label : null,
+                    orderType = o.OrderType.ToString(),
+                    status = o.Status.ToString(),
+                    dailyNo = o.DailyNo,
+                    customerName = o.CustomerName,
+                    lineCount = stats.LineCount,
+                    unfinishedCount = stats.UnfinishedCount,
+                    rowVersion = o.RowVersion,
+                };
+            });
+
+            return Results.Ok(result);
+        });
+
         // --- Order tracking (read) ---
         group.MapGet("/orders/{orderId:guid}", async (Guid orderId, PosDbContext db, CancellationToken ct) =>
         {
@@ -775,39 +828,15 @@ internal static class OrderEndpoints
                 ? await db.OrderLineModifiers.Where(olm => nonVoidedLineIds.Contains(olm.OrderLineId)).ToListAsync(ct)
                 : [];
 
-            // BR-B computation (exact order: subtotal → service → taxable_base → tax → total)
-            var subtotal = lines
-                .Where(l => l.Status != OrderLineStatus.Voided)
-                .Sum(l =>
-                {
-                    var lineTotal = l.UnitPrice * l.Quantity;
-                    var modifierSum = modifiers.Where(m => m.OrderLineId == l.Id).Sum(m => m.PriceDelta);
-                    return lineTotal + modifierSum;
-                });
-
-            var serviceAmount = (branchSettings?.ServiceApplies ?? false)
-                ? subtotal * (branchSettings!.ServiceChargeRate)
-                : 0m;
-
-            var taxableBase = (branchSettings?.TaxOnService ?? false)
-                ? subtotal + serviceAmount
-                : subtotal;
-
-            var taxAmount = (branchSettings?.TaxApplies ?? false)
-                ? taxableBase * (branchSettings!.TaxRate)
-                : 0m;
-
-            var discountAmount = 0m;
-
-            var total = subtotal + serviceAmount + taxAmount - discountAmount;
+            var bill = ComputeBill(lines, modifiers, branchSettings);
 
             // Snapshot onto the order (BR-B-03)
             order.Status = OrderStatus.Completed;
-            order.SubtotalAmount = subtotal;
-            order.ServiceAmount = serviceAmount;
-            order.TaxAmount = taxAmount;
-            order.DiscountAmount = discountAmount;
-            order.TotalAmount = total;
+            order.SubtotalAmount = bill.Subtotal;
+            order.ServiceAmount = bill.ServiceAmount;
+            order.TaxAmount = bill.TaxAmount;
+            order.DiscountAmount = bill.DiscountAmount;
+            order.TotalAmount = bill.Total;
 
             // specs/03-state-machines.md: "Occupied --> Available : order Completed or Cancelled"
             if (order.TableId is not null)
@@ -829,11 +858,11 @@ internal static class OrderEndpoints
                 EventType = OrderEventType.Completed,
                 Details = JsonSerializer.Serialize(new
                 {
-                    subtotal,
-                    serviceAmount,
-                    taxAmount,
-                    discountAmount,
-                    total,
+                    subtotal = bill.Subtotal,
+                    serviceAmount = bill.ServiceAmount,
+                    taxAmount = bill.TaxAmount,
+                    discountAmount = bill.DiscountAmount,
+                    total = bill.Total,
                 }),
                 PerformedBy = tenantContext.UserId,
                 PerformedAt = clock.UtcNow,
@@ -845,11 +874,11 @@ internal static class OrderEndpoints
             {
                 orderId = order.Id,
                 status = "Completed",
-                subtotal,
-                serviceAmount,
-                taxAmount,
-                discountAmount,
-                total,
+                subtotal = bill.Subtotal,
+                serviceAmount = bill.ServiceAmount,
+                taxAmount = bill.TaxAmount,
+                discountAmount = bill.DiscountAmount,
+                total = bill.Total,
                 rowVersion = order.RowVersion,
             });
         });
@@ -909,6 +938,67 @@ internal static class OrderEndpoints
                 taxAmount = order.TaxAmount,
                 discountAmount = order.DiscountAmount,
                 total = order.TotalAmount,
+            });
+        });
+
+        // --- Bill preview (non-mutating cashier read) ---
+        group.MapGet("/orders/{orderId:guid}/bill-preview", async (Guid orderId, PosDbContext db, CancellationToken ct) =>
+        {
+            var order = await db.Orders.FindAsync([orderId], ct);
+            if (order is null) return Results.NotFound();
+
+            if (order.Status == OrderStatus.Completed)
+                return Results.Problem(statusCode: 409, title: "Order already closed");
+
+            var lines = await db.OrderLines
+                .Where(ol => ol.OrderId == orderId)
+                .OrderBy(ol => ol.Sequence)
+                .ToListAsync(ct);
+
+            var nonVoidedLineIds = lines
+                .Where(l => l.Status != OrderLineStatus.Voided)
+                .Select(l => l.Id)
+                .ToHashSet();
+
+            var modifiers = nonVoidedLineIds.Count > 0
+                ? await db.OrderLineModifiers.Where(olm => nonVoidedLineIds.Contains(olm.OrderLineId)).ToListAsync(ct)
+                : [];
+
+            var branchSettings = await db.BranchSettings
+                .FirstOrDefaultAsync(bs => bs.BranchId == order.BranchId, ct);
+
+            var bill = ComputeBill(lines, modifiers, branchSettings);
+
+            var unfinishedCount = lines.Count(l => l.Status is OrderLineStatus.Fired or OrderLineStatus.Preparing);
+            var canClose = unfinishedCount == 0;
+
+            var linesDto = lines
+                .Where(l => l.Status != OrderLineStatus.Voided)
+                .OrderBy(l => l.Sequence)
+                .Select(l => new
+                {
+                    id = l.Id,
+                    itemId = l.ItemId,
+                    quantity = l.Quantity,
+                    unitPrice = l.UnitPrice,
+                    lineTotal = l.UnitPrice * l.Quantity,
+                    modifiers = modifiers
+                        .Where(m => m.OrderLineId == l.Id)
+                        .Select(m => new { name = m.Name, priceDelta = m.PriceDelta }),
+                });
+
+            return Results.Ok(new
+            {
+                orderId = order.Id,
+                canClose,
+                unfinishedCount,
+                lines = linesDto,
+                subtotal = bill.Subtotal,
+                serviceAmount = bill.ServiceAmount,
+                taxAmount = bill.TaxAmount,
+                discountAmount = bill.DiscountAmount,
+                total = bill.Total,
+                rowVersion = order.RowVersion,
             });
         });
 
@@ -997,7 +1087,42 @@ internal static class OrderEndpoints
 
         return parts.ToArray();
     }
+
+    private static BillBreakdown ComputeBill(
+        IReadOnlyList<OrderLine> lines,
+        IReadOnlyList<OrderLineModifier> modifiers,
+        BranchSettings? branchSettings)
+    {
+        var subtotal = lines
+            .Where(l => l.Status != OrderLineStatus.Voided)
+            .Sum(l =>
+            {
+                var lineTotal = l.UnitPrice * l.Quantity;
+                var modifierSum = modifiers.Where(m => m.OrderLineId == l.Id).Sum(m => m.PriceDelta);
+                return lineTotal + modifierSum;
+            });
+
+        var serviceAmount = (branchSettings?.ServiceApplies ?? false)
+            ? subtotal * (branchSettings!.ServiceChargeRate)
+            : 0m;
+
+        var taxableBase = (branchSettings?.TaxOnService ?? false)
+            ? subtotal + serviceAmount
+            : subtotal;
+
+        var taxAmount = (branchSettings?.TaxApplies ?? false)
+            ? taxableBase * (branchSettings!.TaxRate)
+            : 0m;
+
+        var discountAmount = 0m;
+
+        var total = subtotal + serviceAmount + taxAmount - discountAmount;
+
+        return new BillBreakdown(subtotal, serviceAmount, taxAmount, discountAmount, total);
+    }
 }
+
+internal sealed record BillBreakdown(decimal Subtotal, decimal ServiceAmount, decimal TaxAmount, decimal DiscountAmount, decimal Total);
 
 internal sealed record FireBatchRequest(int RowVersion);
 
