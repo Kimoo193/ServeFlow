@@ -18,14 +18,25 @@ internal static class OrderEndpoints
         var group = app.MapGroup(string.Empty).RequireAuthorization();
 
         // --- Open a dine-in order on a table ---
-        group.MapPost("/tables/{tableId:guid}/orders", async (Guid tableId, PosDbContext db, ITenantContext tenantContext, IClock clock, CancellationToken ct) =>
+        group.MapPost("/tables/{tableId:guid}/orders", async (Guid tableId, CreateDineInOrderRequest? body, PosDbContext db, ITenantContext tenantContext, IClock clock, CancellationToken ct) =>
         {
+            // Idempotent replay: if a client-supplied OrderId already exists, return the
+            // existing order without any side effects (no new insert, no table status change).
+            if (body?.OrderId.HasValue == true)
+            {
+                var existing = await db.Orders.FindAsync([body.OrderId.Value], ct);
+                if (existing is not null)
+                {
+                    return Results.Created($"/orders/{existing.Id}", new { orderId = existing.Id, status = existing.Status.ToString(), rowVersion = existing.RowVersion });
+                }
+            }
+
             var table = await db.DiningTables.FindAsync([tableId], ct);
             if (table is null) return Results.NotFound();
 
             var order = new Order
             {
-                Id = Guid.NewGuid(),
+                Id = body?.OrderId ?? Guid.NewGuid(),
                 TenantId = tenantContext.TenantId,
                 BranchId = tenantContext.BranchId,
                 TableId = tableId,
@@ -65,13 +76,24 @@ internal static class OrderEndpoints
         // --- Open a takeaway order ---
         group.MapPost("/orders", async (CreateTakeawayOrderRequest? body, PosDbContext db, ITenantContext tenantContext, IClock clock, CancellationToken ct) =>
         {
+            // Idempotent replay: if a client-supplied OrderId already exists, return the
+            // existing order's current state (do NOT re-run the dailyNo COUNT query).
+            if (body?.OrderId.HasValue == true)
+            {
+                var existing = await db.Orders.FindAsync([body.OrderId.Value], ct);
+                if (existing is not null)
+                {
+                    return Results.Created($"/orders/{existing.Id}", new { orderId = existing.Id, status = existing.Status.ToString(), dailyNo = existing.DailyNo, rowVersion = existing.RowVersion });
+                }
+            }
+
             var dailyNo = await db.Orders
                 .Where(o => o.TenantId == tenantContext.TenantId && o.BranchId == tenantContext.BranchId && o.OrderType == OrderType.Takeaway)
                 .CountAsync(ct) + 1;
 
             var order = new Order
             {
-                Id = Guid.NewGuid(),
+                Id = body?.OrderId ?? Guid.NewGuid(),
                 TenantId = tenantContext.TenantId,
                 BranchId = tenantContext.BranchId,
                 WaiterId = tenantContext.UserId,
@@ -103,6 +125,18 @@ internal static class OrderEndpoints
         // --- Add a draft line ---
         group.MapPost("/orders/{orderId:guid}/lines", async (Guid orderId, AddDraftLineRequest body, PosDbContext db, ITenantContext tenantContext, CancellationToken ct) =>
         {
+            // Idempotent replay: if a client-supplied LineId already exists for this order,
+            // return the existing line's current state (no row_version check, no new insert).
+            if (body.LineId.HasValue)
+            {
+                var existingLine = await db.OrderLines.FirstOrDefaultAsync(ol => ol.Id == body.LineId.Value && ol.OrderId == orderId, ct);
+                if (existingLine is not null)
+                {
+                    var existingOrder = await db.Orders.FindAsync([orderId], ct);
+                    return Results.Created($"/orders/{orderId}/lines/{existingLine.Id}", new { lineId = existingLine.Id, sequence = existingLine.Sequence, unitPrice = existingLine.UnitPrice, rowVersion = existingOrder?.RowVersion ?? 0 });
+                }
+            }
+
             var order = await db.Orders.FindAsync([orderId], ct);
             if (order is null) return Results.NotFound();
             if (order.Status != OrderStatus.Open && order.Status != OrderStatus.InProgress)
@@ -122,7 +156,7 @@ internal static class OrderEndpoints
 
             var line = new OrderLine
             {
-                Id = Guid.NewGuid(),
+                Id = body.LineId ?? Guid.NewGuid(),
                 TenantId = tenantContext.TenantId,
                 OrderId = orderId,
                 ItemId = body.MenuItemId,
@@ -967,8 +1001,9 @@ internal static class OrderEndpoints
 
 internal sealed record FireBatchRequest(int RowVersion);
 
-internal sealed record CreateTakeawayOrderRequest(string? CustomerName);
-internal sealed record AddDraftLineRequest(Guid MenuItemId, int Quantity, List<Guid> ModifierIds, int RowVersion);
+internal sealed record CreateDineInOrderRequest(Guid? OrderId);
+internal sealed record CreateTakeawayOrderRequest(string? CustomerName, Guid? OrderId = null);
+internal sealed record AddDraftLineRequest(Guid MenuItemId, int Quantity, List<Guid> ModifierIds, int RowVersion, Guid? LineId = null);
 internal sealed record UpdateDraftLineRequest(int Quantity, List<Guid> ModifierIds, int RowVersion);
 
 internal sealed record VoidLineRequest(string Reason, int RowVersion);

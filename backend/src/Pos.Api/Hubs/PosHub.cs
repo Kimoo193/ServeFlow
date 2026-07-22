@@ -25,6 +25,24 @@ public sealed class PosHub(PosDbContext dbContext) : Hub
         await Groups.AddToGroupAsync(Context.ConnectionId, $"station:{stationId}", Context.ConnectionAborted);
     }
 
+    public async Task JoinBranchGroup(Guid branchId)
+    {
+        var tenantId = ReadTenantId();
+        if (tenantId == Guid.Empty)
+            throw new HubException("Required tenant claim is missing.");
+
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(Context.ConnectionAborted);
+        await dbContext.Database.SetTenantAsync(tenantId, Context.ConnectionAborted);
+
+        var branchExists = await dbContext.Branches.AnyAsync(b => b.Id == branchId, Context.ConnectionAborted);
+        if (!branchExists)
+            throw new HubException("Branch not found or does not belong to this tenant.");
+
+        await transaction.CommitAsync(Context.ConnectionAborted);
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"branch:{branchId}", Context.ConnectionAborted);
+    }
+
     public async Task JoinWaiterGroup()
     {
         var userId = ReadUserId();

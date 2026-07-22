@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Pos.Api.Hubs;
 using Pos.Application.Common;
 using Pos.Domain.Entities;
 using Pos.Infrastructure.Persistence;
@@ -89,18 +91,34 @@ internal static class MenuEndpoints
             return Results.Created($"/menu-items/{item.Id}", new { item.Id, item.CategoryId, item.StationId, item.Name, item.Price, Availability = item.Availability.ToString() });
         });
 
-        group.MapPut("/menu-items/{id:guid}", async (Guid id, CreateMenuItemRequest body, PosDbContext db, CancellationToken ct) =>
+        group.MapPut("/menu-items/{id:guid}", async (Guid id, CreateMenuItemRequest body, PosDbContext db, IHubContext<PosHub> hubContext, CancellationToken ct) =>
         {
             var item = await db.MenuItems.FindAsync([id], ct);
             if (item is null) return Results.NotFound();
             if (!Enum.TryParse<Availability>(body.Availability, ignoreCase: true, out var availability) || !Enum.IsDefined(availability))
                 return Results.Problem(statusCode: 400, title: "Invalid availability", detail: $"Must be one of: {string.Join(", ", Enum.GetNames<Availability>())}");
+            var previousAvailability = item.Availability;
             item.CategoryId = body.CategoryId;
             item.StationId = body.StationId;
             item.Name = body.Name;
             item.Price = body.Price;
             item.Availability = availability;
             await db.SaveChangesAsync(ct);
+
+            // Broadcast best-effort if availability actually changed
+            if (previousAvailability != item.Availability)
+            {
+                var station = await db.Stations.FindAsync([item.StationId], ct);
+                if (station is not null)
+                {
+                    await hubContext.Clients.Group($"branch:{station.BranchId}").SendAsync("AvailabilityChanged", new
+                    {
+                        itemId = item.Id,
+                        availability = item.Availability.ToString(),
+                    }, ct);
+                }
+            }
+
             return Results.Ok(new { item.Id, item.CategoryId, item.StationId, item.Name, item.Price, Availability = item.Availability.ToString() });
         });
 
