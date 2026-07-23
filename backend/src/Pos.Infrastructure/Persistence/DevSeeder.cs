@@ -67,6 +67,36 @@ public static class DevSeeder
             });
         }
 
+        if (!await dbContext.RolePermissions.AnyAsync(rp => rp.TenantId == TenantId, cancellationToken))
+        {
+            var allPermissions = Enum.GetValues<Permission>();
+            foreach (var perm in allPermissions)
+            {
+                dbContext.RolePermissions.Add(new RolePermission
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = TenantId,
+                    Role = Role.Manager,
+                    Permission = perm,
+                });
+            }
+
+            dbContext.RolePermissions.Add(new RolePermission
+            {
+                Id = Guid.NewGuid(),
+                TenantId = TenantId,
+                Role = Role.Cashier,
+                Permission = Permission.CloseOrder,
+            });
+            dbContext.RolePermissions.Add(new RolePermission
+            {
+                Id = Guid.NewGuid(),
+                TenantId = TenantId,
+                Role = Role.Cashier,
+                Permission = Permission.ViewHistory,
+            });
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }

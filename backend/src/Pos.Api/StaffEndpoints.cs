@@ -14,7 +14,7 @@ internal static class StaffEndpoints
         group.MapGet("/users", async (PosDbContext db, CancellationToken ct) =>
             Results.Ok(await db.Users
                 .Select(u => new { u.Id, u.DisplayName, Role = u.Role.ToString(), u.IsActive })
-                .ToListAsync(ct)));
+                .ToListAsync(ct))).RequirePermission(Permission.ManageStaff);
 
         group.MapPost("/users", async (CreateUserRequest body, PosDbContext db, ITenantContext tenantContext, CancellationToken ct) =>
         {
@@ -35,7 +35,7 @@ internal static class StaffEndpoints
             db.Users.Add(user);
             await db.SaveChangesAsync(ct);
             return Results.Created($"/users/{user.Id}", new { user.Id, user.DisplayName, Role = user.Role.ToString(), user.IsActive });
-        });
+        }).RequirePermission(Permission.ManageStaff);
 
         group.MapPut("/users/{id:guid}", async (Guid id, UpdateUserRequest body, PosDbContext db, CancellationToken ct) =>
         {
@@ -53,7 +53,7 @@ internal static class StaffEndpoints
             user.IsActive = body.IsActive;
             await db.SaveChangesAsync(ct);
             return Results.Ok(new { user.Id, user.DisplayName, Role = user.Role.ToString(), user.IsActive });
-        });
+        }).RequirePermission(Permission.ManageStaff);
 
         group.MapGet("/roles/permissions", async (PosDbContext db, CancellationToken ct) =>
         {
@@ -76,7 +76,7 @@ internal static class StaffEndpoints
                 permissions,
                 grants = grouped,
             });
-        });
+        }).RequirePermission(Permission.ManageStaff);
 
         group.MapPut("/roles/{role}/permissions", async (string role, SetRolePermissionsRequest body, PosDbContext db, ITenantContext tenantContext, CancellationToken ct) =>
         {
@@ -127,7 +127,7 @@ internal static class StaffEndpoints
             var savedStrings = saved.Select(p => p.ToString()).ToList();
 
             return Results.Ok(new { role, permissions = savedStrings });
-        });
+        }).RequirePermission(Permission.ManageStaff);
 
         return app;
     }

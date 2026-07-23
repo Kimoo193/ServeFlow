@@ -514,7 +514,7 @@ public sealed class CloseAndReceiptTests(PostgresRlsFixture fixture)
             tenantId,
             branchId,
             userId,
-            role = "Waiter",
+            role = "Owner",
         });
         response.EnsureSuccessStatusCode();
 

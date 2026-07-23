@@ -28,7 +28,7 @@ internal static class DiningAreaEndpoints
             db.Sections.Add(section);
             await db.SaveChangesAsync(ct);
             return Results.Created($"/sections/{section.Id}", new { section.Id, section.BranchId, section.Name });
-        });
+        }).RequirePermission(Permission.ManageFloor);
 
         group.MapGet("/tables", async (PosDbContext db, CancellationToken ct) =>
             Results.Ok(await db.DiningTables
@@ -47,7 +47,7 @@ internal static class DiningAreaEndpoints
             db.DiningTables.Add(table);
             await db.SaveChangesAsync(ct);
             return Results.Created($"/tables/{table.Id}", new { table.Id, table.Label, Status = table.Status.ToString(), table.SectionId });
-        });
+        }).RequirePermission(Permission.ManageFloor);
 
         group.MapPut("/sections/{id:guid}", async (Guid id, CreateSectionRequest body, PosDbContext db, CancellationToken ct) =>
         {
@@ -56,7 +56,7 @@ internal static class DiningAreaEndpoints
             section.Name = body.Name;
             await db.SaveChangesAsync(ct);
             return Results.Ok(new { section.Id, section.BranchId, section.Name });
-        });
+        }).RequirePermission(Permission.ManageFloor);
 
         group.MapDelete("/sections/{id:guid}", async (Guid id, PosDbContext db, CancellationToken ct) =>
         {
@@ -69,7 +69,7 @@ internal static class DiningAreaEndpoints
             db.Sections.Remove(section);
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
-        });
+        }).RequirePermission(Permission.ManageFloor);
 
         group.MapPut("/tables/{id:guid}", async (Guid id, CreateTableRequest body, PosDbContext db, CancellationToken ct) =>
         {
@@ -79,7 +79,7 @@ internal static class DiningAreaEndpoints
             table.Label = body.Label;
             await db.SaveChangesAsync(ct);
             return Results.Ok(new { table.Id, table.Label, Status = table.Status.ToString(), table.SectionId });
-        });
+        }).RequirePermission(Permission.ManageFloor);
 
         group.MapDelete("/tables/{id:guid}", async (Guid id, PosDbContext db, CancellationToken ct) =>
         {
@@ -92,7 +92,7 @@ internal static class DiningAreaEndpoints
             db.DiningTables.Remove(table);
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
-        });
+        }).RequirePermission(Permission.ManageFloor);
 
         return app;
     }

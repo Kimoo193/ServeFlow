@@ -156,6 +156,15 @@ public sealed class ModifyVoidTests(PostgresRlsFixture fixture)
                 cmd.Parameters.AddWithValue("name", "Test Manager");
                 await cmd.ExecuteNonQueryAsync();
             }
+            await using (var cmd = new NpgsqlCommand(
+                "INSERT INTO role_permissions (id, tenant_id, role, permission) VALUES (@id, @tenantId, @role, @permission)", connection))
+            {
+                cmd.Parameters.AddWithValue("id", Guid.NewGuid());
+                cmd.Parameters.AddWithValue("tenantId", tenantId);
+                cmd.Parameters.AddWithValue("role", "Manager");
+                cmd.Parameters.AddWithValue("permission", "VoidLine");
+                await cmd.ExecuteNonQueryAsync();
+            }
             await transaction.CommitAsync();
         }
 

@@ -227,7 +227,7 @@ public sealed class StaffAdminTests(PostgresRlsFixture fixture)
             tenantId,
             branchId,
             userId,
-            role = "Manager",
+            role = "Owner",
         });
         response.EnsureSuccessStatusCode();
 

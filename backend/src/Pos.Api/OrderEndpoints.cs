@@ -386,7 +386,7 @@ internal static class OrderEndpoints
                 });
 
             return Results.Ok(result);
-        });
+        }).RequirePermission(Permission.ViewHistory);
 
         // --- Order tracking (read) ---
         group.MapGet("/orders/{orderId:guid}", async (Guid orderId, PosDbContext db, CancellationToken ct) =>
@@ -725,13 +725,13 @@ internal static class OrderEndpoints
             if (order.RowVersion != body.RowVersion)
                 return Results.Problem(statusCode: 409, title: "Concurrency conflict", detail: "Stale row version");
 
-            var isManagerOrOwner = tenantContext.Role is Role.Owner or Role.Manager;
+            var hasVoid = await PermissionAuthorization.HasPermissionAsync(db, tenantContext, Permission.VoidLine, ct);
             var isOwnWaiter = tenantContext.Role == Role.Waiter && order.WaiterId == tenantContext.UserId;
 
             var canVoid = line.Status switch
             {
-                OrderLineStatus.Fired => isManagerOrOwner || isOwnWaiter,
-                OrderLineStatus.Preparing or OrderLineStatus.Ready or OrderLineStatus.Served => isManagerOrOwner,
+                OrderLineStatus.Fired => hasVoid || isOwnWaiter,
+                OrderLineStatus.Preparing or OrderLineStatus.Ready or OrderLineStatus.Served => hasVoid,
                 _ => false,
             };
 
@@ -802,13 +802,13 @@ internal static class OrderEndpoints
             if (order.RowVersion != body.RowVersion)
                 return Results.Problem(statusCode: 409, title: "Concurrency conflict", detail: "Stale row version");
 
-            var isManagerOrOwner = tenantContext.Role is Role.Owner or Role.Manager;
+            var hasVoid = await PermissionAuthorization.HasPermissionAsync(db, tenantContext, Permission.VoidLine, ct);
             var isOwnWaiter = tenantContext.Role == Role.Waiter && order.WaiterId == tenantContext.UserId;
 
             var canModify = line.Status switch
             {
-                OrderLineStatus.Fired => isManagerOrOwner || isOwnWaiter,
-                OrderLineStatus.Preparing => isManagerOrOwner,
+                OrderLineStatus.Fired => hasVoid || isOwnWaiter,
+                OrderLineStatus.Preparing => hasVoid,
                 _ => false,
             };
 
@@ -982,7 +982,7 @@ internal static class OrderEndpoints
                 total = bill.Total,
                 rowVersion = order.RowVersion,
             });
-        });
+        }).RequirePermission(Permission.CloseOrder);
 
         // --- Receipt (read-only, render snapshotted order) ---
         group.MapGet("/orders/{orderId:guid}/receipt", async (Guid orderId, PosDbContext db, IClock clock, CancellationToken ct) =>

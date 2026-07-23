@@ -31,7 +31,7 @@ internal static class DashboardEndpoints
                 ordersToday,
                 openNow,
             });
-        });
+        }).RequirePermission(Permission.ViewHistory);
 
         return app;
     }

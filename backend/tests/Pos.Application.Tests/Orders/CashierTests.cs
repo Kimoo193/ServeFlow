@@ -509,7 +509,7 @@ public sealed class CashierTests(PostgresRlsFixture fixture)
             tenantId,
             branchId,
             userId,
-            role = "Cashier",
+            role = "Owner",
         });
         response.EnsureSuccessStatusCode();
 

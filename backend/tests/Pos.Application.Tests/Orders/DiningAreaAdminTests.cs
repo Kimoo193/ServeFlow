@@ -188,7 +188,7 @@ public sealed class DiningAreaAdminTests(PostgresRlsFixture fixture)
             tenantId,
             branchId,
             userId,
-            role = "Manager",
+            role = "Owner",
         });
         response.EnsureSuccessStatusCode();
 

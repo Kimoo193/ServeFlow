@@ -161,7 +161,7 @@ public sealed class AvailabilityBroadcastTests(PostgresRlsFixture fixture)
             tenantId,
             branchId,
             userId,
-            role = "Waiter",
+            role = "Owner",
         });
         response.EnsureSuccessStatusCode();
 

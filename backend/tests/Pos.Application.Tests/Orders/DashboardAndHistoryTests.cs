@@ -224,7 +224,7 @@ public sealed class DashboardAndHistoryTests(PostgresRlsFixture fixture)
             tenantId,
             branchId,
             userId,
-            role = "Manager",
+            role = "Owner",
         });
         response.EnsureSuccessStatusCode();
 

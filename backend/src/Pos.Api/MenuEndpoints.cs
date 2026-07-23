@@ -38,7 +38,7 @@ internal static class MenuEndpoints
             db.Categories.Add(category);
             await db.SaveChangesAsync(ct);
             return Results.Created($"/categories/{category.Id}", new { category.Id, category.Name, category.SortOrder });
-        });
+        }).RequirePermission(Permission.EditMenu);
 
         group.MapPut("/categories/{id:guid}", async (Guid id, CreateCategoryRequest body, PosDbContext db, CancellationToken ct) =>
         {
@@ -48,7 +48,7 @@ internal static class MenuEndpoints
             category.SortOrder = body.SortOrder;
             await db.SaveChangesAsync(ct);
             return Results.Ok(new { category.Id, category.Name, category.SortOrder });
-        });
+        }).RequirePermission(Permission.EditMenu);
 
         group.MapDelete("/categories/{id:guid}", async (Guid id, PosDbContext db, CancellationToken ct) =>
         {
@@ -57,7 +57,7 @@ internal static class MenuEndpoints
             db.Categories.Remove(category);
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
-        });
+        }).RequirePermission(Permission.EditMenu);
 
         // --- Menu Items ---
         group.MapGet("/menu-items", async (PosDbContext db, CancellationToken ct) =>
@@ -89,7 +89,7 @@ internal static class MenuEndpoints
             db.MenuItems.Add(item);
             await db.SaveChangesAsync(ct);
             return Results.Created($"/menu-items/{item.Id}", new { item.Id, item.CategoryId, item.StationId, item.Name, item.Price, Availability = item.Availability.ToString() });
-        });
+        }).RequirePermission(Permission.EditMenu);
 
         group.MapPut("/menu-items/{id:guid}", async (Guid id, CreateMenuItemRequest body, PosDbContext db, IHubContext<PosHub> hubContext, CancellationToken ct) =>
         {
@@ -120,7 +120,7 @@ internal static class MenuEndpoints
             }
 
             return Results.Ok(new { item.Id, item.CategoryId, item.StationId, item.Name, item.Price, Availability = item.Availability.ToString() });
-        });
+        }).RequirePermission(Permission.EditMenu);
 
         group.MapDelete("/menu-items/{id:guid}", async (Guid id, PosDbContext db, CancellationToken ct) =>
         {
@@ -129,7 +129,7 @@ internal static class MenuEndpoints
             db.MenuItems.Remove(item);
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
-        });
+        }).RequirePermission(Permission.EditMenu);
 
         // --- Item-ModifierGroup attachments ---
         group.MapPost("/menu-items/{itemId:guid}/modifier-groups/{groupId:guid}", async (Guid itemId, Guid groupId, PosDbContext db, ITenantContext tenantContext, CancellationToken ct) =>
@@ -140,7 +140,7 @@ internal static class MenuEndpoints
             db.ItemModifierGroups.Add(link);
             await db.SaveChangesAsync(ct);
             return Results.Created($"/menu-items/{itemId}/modifier-groups/{groupId}", new { link.Id });
-        });
+        }).RequirePermission(Permission.EditMenu);
 
         group.MapDelete("/menu-items/{itemId:guid}/modifier-groups/{groupId:guid}", async (Guid itemId, Guid groupId, PosDbContext db, CancellationToken ct) =>
         {
@@ -149,7 +149,7 @@ internal static class MenuEndpoints
             db.ItemModifierGroups.Remove(link);
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
-        });
+        }).RequirePermission(Permission.EditMenu);
 
         // --- Modifier Groups ---
         group.MapGet("/modifier-groups", async (PosDbContext db, CancellationToken ct) =>
@@ -177,7 +177,7 @@ internal static class MenuEndpoints
             db.ModifierGroups.Add(mg);
             await db.SaveChangesAsync(ct);
             return Results.Created($"/modifier-groups/{mg.Id}", new { mg.Id, mg.Name, mg.MinSelect, mg.MaxSelect, mg.Required });
-        });
+        }).RequirePermission(Permission.EditMenu);
 
         group.MapPut("/modifier-groups/{id:guid}", async (Guid id, CreateModifierGroupRequest body, PosDbContext db, CancellationToken ct) =>
         {
@@ -189,7 +189,7 @@ internal static class MenuEndpoints
             mg.Required = body.Required;
             await db.SaveChangesAsync(ct);
             return Results.Ok(new { mg.Id, mg.Name, mg.MinSelect, mg.MaxSelect, mg.Required });
-        });
+        }).RequirePermission(Permission.EditMenu);
 
         group.MapDelete("/modifier-groups/{id:guid}", async (Guid id, PosDbContext db, CancellationToken ct) =>
         {
@@ -198,7 +198,7 @@ internal static class MenuEndpoints
             db.ModifierGroups.Remove(mg);
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
-        });
+        }).RequirePermission(Permission.EditMenu);
 
         // --- Modifiers ---
         group.MapGet("/modifiers", async (PosDbContext db, CancellationToken ct) =>
@@ -225,7 +225,7 @@ internal static class MenuEndpoints
             db.Modifiers.Add(modifier);
             await db.SaveChangesAsync(ct);
             return Results.Created($"/modifiers/{modifier.Id}", new { modifier.Id, modifier.GroupId, modifier.Name, modifier.PriceDelta });
-        });
+        }).RequirePermission(Permission.EditMenu);
 
         group.MapPut("/modifiers/{id:guid}", async (Guid id, CreateModifierRequest body, PosDbContext db, CancellationToken ct) =>
         {
@@ -236,7 +236,7 @@ internal static class MenuEndpoints
             modifier.PriceDelta = body.PriceDelta;
             await db.SaveChangesAsync(ct);
             return Results.Ok(new { modifier.Id, modifier.GroupId, modifier.Name, modifier.PriceDelta });
-        });
+        }).RequirePermission(Permission.EditMenu);
 
         group.MapDelete("/modifiers/{id:guid}", async (Guid id, PosDbContext db, CancellationToken ct) =>
         {
@@ -245,7 +245,7 @@ internal static class MenuEndpoints
             db.Modifiers.Remove(modifier);
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
-        });
+        }).RequirePermission(Permission.EditMenu);
 
         // --- Combos ---
         group.MapGet("/combos", async (PosDbContext db, CancellationToken ct) =>
@@ -265,7 +265,7 @@ internal static class MenuEndpoints
             db.Combos.Add(combo);
             await db.SaveChangesAsync(ct);
             return Results.Created($"/combos/{combo.Id}", new { combo.Id, combo.Name, combo.Price });
-        });
+        }).RequirePermission(Permission.EditMenu);
 
         group.MapPut("/combos/{id:guid}", async (Guid id, CreateComboRequest body, PosDbContext db, CancellationToken ct) =>
         {
@@ -275,7 +275,7 @@ internal static class MenuEndpoints
             combo.Price = body.Price;
             await db.SaveChangesAsync(ct);
             return Results.Ok(new { combo.Id, combo.Name, combo.Price });
-        });
+        }).RequirePermission(Permission.EditMenu);
 
         group.MapDelete("/combos/{id:guid}", async (Guid id, PosDbContext db, CancellationToken ct) =>
         {
@@ -284,7 +284,7 @@ internal static class MenuEndpoints
             db.Combos.Remove(combo);
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
-        });
+        }).RequirePermission(Permission.EditMenu);
 
         // --- Combo-Item attachments ---
         group.MapPost("/combos/{comboId:guid}/items/{itemId:guid}", async (Guid comboId, Guid itemId, AttachComboItemRequest body, PosDbContext db, ITenantContext tenantContext, CancellationToken ct) =>
@@ -295,7 +295,7 @@ internal static class MenuEndpoints
             db.ComboItems.Add(ci);
             await db.SaveChangesAsync(ct);
             return Results.Created($"/combos/{comboId}/items/{itemId}", new { ci.Id, ci.Quantity });
-        });
+        }).RequirePermission(Permission.EditMenu);
 
         group.MapDelete("/combos/{comboId:guid}/items/{itemId:guid}", async (Guid comboId, Guid itemId, PosDbContext db, CancellationToken ct) =>
         {
@@ -304,7 +304,7 @@ internal static class MenuEndpoints
             db.ComboItems.Remove(ci);
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
-        });
+        }).RequirePermission(Permission.EditMenu);
 
         // --- Stations ---
         group.MapGet("/stations", async (PosDbContext db, CancellationToken ct) =>
@@ -324,7 +324,7 @@ internal static class MenuEndpoints
             db.Stations.Add(station);
             await db.SaveChangesAsync(ct);
             return Results.Created($"/stations/{station.Id}", new { station.Id, station.BranchId, station.Name });
-        });
+        }).RequirePermission(Permission.ManageFloor);
 
         group.MapPut("/stations/{id:guid}", async (Guid id, CreateStationRequest body, PosDbContext db, CancellationToken ct) =>
         {
@@ -334,7 +334,7 @@ internal static class MenuEndpoints
             station.Name = body.Name;
             await db.SaveChangesAsync(ct);
             return Results.Ok(new { station.Id, station.BranchId, station.Name });
-        });
+        }).RequirePermission(Permission.ManageFloor);
 
         group.MapDelete("/stations/{id:guid}", async (Guid id, PosDbContext db, CancellationToken ct) =>
         {
@@ -343,7 +343,7 @@ internal static class MenuEndpoints
             db.Stations.Remove(station);
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
-        });
+        }).RequirePermission(Permission.ManageFloor);
 
         // --- Menu tree (tablet: Hidden excluded) ---
         group.MapGet("/menu", async (PosDbContext db, CancellationToken ct) =>
