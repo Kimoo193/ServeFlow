@@ -68,6 +68,7 @@ public static class DevSeeder
                 TenantId = TenantId,
                 DisplayName = "Dev Owner",
                 Role = Role.Owner,
+                IsActive = true,
             });
         }
 
@@ -79,6 +80,7 @@ public static class DevSeeder
                 TenantId = TenantId,
                 DisplayName = "Dev Manager",
                 Role = Role.Manager,
+                IsActive = true,
             });
         }
 
@@ -90,6 +92,7 @@ public static class DevSeeder
                 TenantId = TenantId,
                 DisplayName = "Dev Cashier",
                 Role = Role.Cashier,
+                IsActive = true,
             });
         }
 
@@ -101,6 +104,7 @@ public static class DevSeeder
                 TenantId = TenantId,
                 DisplayName = "Dev Waiter",
                 Role = Role.Waiter,
+                IsActive = true,
             });
         }
 
@@ -112,6 +116,7 @@ public static class DevSeeder
                 TenantId = TenantId,
                 DisplayName = "Dev Kitchen",
                 Role = Role.Kitchen,
+                IsActive = true,
             });
         }
 
