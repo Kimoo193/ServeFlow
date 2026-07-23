@@ -4,7 +4,7 @@ using Pos.Domain.Entities;
 namespace Pos.Infrastructure.Persistence;
 
 /// <summary>
-/// Idempotent Development seed: one Tenant + Branch + BranchSettings + Owner User.
+/// Idempotent Development seed: one Tenant + Branch + BranchSettings + one User per role.
 /// Runs under the app's non-superuser role, so it sets app.tenant_id for its own
 /// tenant before writing — RLS (FORCE ROW LEVEL SECURITY) applies to this seed too.
 /// </summary>
@@ -13,6 +13,10 @@ public static class DevSeeder
     public static readonly Guid TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
     public static readonly Guid BranchId = Guid.Parse("00000000-0000-0000-0000-000000000002");
     public static readonly Guid OwnerUserId = Guid.Parse("00000000-0000-0000-0000-000000000003");
+    public static readonly Guid ManagerUserId = Guid.Parse("00000000-0000-0000-0000-000000000004");
+    public static readonly Guid CashierUserId = Guid.Parse("00000000-0000-0000-0000-000000000005");
+    public static readonly Guid WaiterUserId = Guid.Parse("00000000-0000-0000-0000-000000000006");
+    public static readonly Guid KitchenUserId = Guid.Parse("00000000-0000-0000-0000-000000000007");
 
     public static async Task SeedAsync(PosDbContext dbContext, CancellationToken cancellationToken = default)
     {
@@ -64,6 +68,50 @@ public static class DevSeeder
                 TenantId = TenantId,
                 DisplayName = "Dev Owner",
                 Role = Role.Owner,
+            });
+        }
+
+        if (!await dbContext.Users.AnyAsync(u => u.Id == ManagerUserId, cancellationToken))
+        {
+            dbContext.Users.Add(new User
+            {
+                Id = ManagerUserId,
+                TenantId = TenantId,
+                DisplayName = "Dev Manager",
+                Role = Role.Manager,
+            });
+        }
+
+        if (!await dbContext.Users.AnyAsync(u => u.Id == CashierUserId, cancellationToken))
+        {
+            dbContext.Users.Add(new User
+            {
+                Id = CashierUserId,
+                TenantId = TenantId,
+                DisplayName = "Dev Cashier",
+                Role = Role.Cashier,
+            });
+        }
+
+        if (!await dbContext.Users.AnyAsync(u => u.Id == WaiterUserId, cancellationToken))
+        {
+            dbContext.Users.Add(new User
+            {
+                Id = WaiterUserId,
+                TenantId = TenantId,
+                DisplayName = "Dev Waiter",
+                Role = Role.Waiter,
+            });
+        }
+
+        if (!await dbContext.Users.AnyAsync(u => u.Id == KitchenUserId, cancellationToken))
+        {
+            dbContext.Users.Add(new User
+            {
+                Id = KitchenUserId,
+                TenantId = TenantId,
+                DisplayName = "Dev Kitchen",
+                Role = Role.Kitchen,
             });
         }
 
