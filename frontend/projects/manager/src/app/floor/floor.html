@@ -1,7 +1,11 @@
+<header class="page-head">
+  <h1 class="page-title">Floor</h1>
+</header>
+
 @if (error()) {
-  <div class="error-banner" role="alert">
+  <div class="banner banner--error" role="alert">
     <span>{{ error() }}</span>
-    <button class="close-btn" (click)="closeError()" aria-label="Dismiss">&times;</button>
+    <button class="banner-dismiss" (click)="closeError()" aria-label="Dismiss">&times;</button>
   </div>
 }
 
@@ -11,40 +15,40 @@
     <h2 class="panel-title">Sections &amp; Tables</h2>
 
     <div class="toolbar">
-      <button class="btn btn-primary" (click)="startCreateSection()">+ New Section</button>
-      <button class="btn btn-primary" (click)="startCreateTable()">+ New Table</button>
+      <button class="btn btn-primary btn-sm" (click)="startCreateSection()">+ New Section</button>
+      <button class="btn btn-sm" (click)="startCreateTable()">+ New Table</button>
     </div>
 
     @if (creatingSection()) {
       <form class="inline-form" [formGroup]="sectionForm" (ngSubmit)="saveSection()">
-        <label>
-          Section name *
-          <input formControlName="name" />
-        </label>
+        <div class="field">
+          <label class="field-label" for="sec-name">Section name *</label>
+          <input id="sec-name" class="input" formControlName="name" />
+        </div>
         <div class="form-actions">
-          <button class="btn btn-primary" type="submit" [disabled]="sectionForm.invalid || busy()">Save</button>
-          <button class="btn btn-ghost" type="button" (click)="cancelSectionEdit()">Cancel</button>
+          <button class="btn btn-primary btn-sm" type="submit" [disabled]="sectionForm.invalid || busy()">Save</button>
+          <button class="btn btn-ghost btn-sm" type="button" (click)="cancelSectionEdit()">Cancel</button>
         </div>
       </form>
     }
 
     @if (creatingTable()) {
       <form class="inline-form" [formGroup]="tableForm" (ngSubmit)="saveTable()">
-        <label>
-          Section *
-          <select formControlName="sectionId">
+        <div class="field">
+          <label class="field-label" for="tbl-sec">Section *</label>
+          <select id="tbl-sec" class="select" formControlName="sectionId">
             @for (s of sections(); track s.id) {
               <option [value]="s.id">{{ s.name }}</option>
             }
           </select>
-        </label>
-        <label>
-          Label *
-          <input formControlName="label" />
-        </label>
+        </div>
+        <div class="field">
+          <label class="field-label" for="tbl-label">Label *</label>
+          <input id="tbl-label" class="input" formControlName="label" />
+        </div>
         <div class="form-actions">
-          <button class="btn btn-primary" type="submit" [disabled]="tableForm.invalid || busy()">Save</button>
-          <button class="btn btn-ghost" type="button" (click)="cancelTableEdit()">Cancel</button>
+          <button class="btn btn-primary btn-sm" type="submit" [disabled]="tableForm.invalid || busy()">Save</button>
+          <button class="btn btn-ghost btn-sm" type="button" (click)="cancelTableEdit()">Cancel</button>
         </div>
       </form>
     }
@@ -54,13 +58,13 @@
         <div class="section-card">
           @if (editingSectionId() === sec.id) {
             <form class="inline-form" [formGroup]="sectionForm" (ngSubmit)="saveSection()">
-              <label>
-                Section name *
-                <input formControlName="name" />
-              </label>
+              <div class="field">
+                <label class="field-label" for="sec-edit-name">Section name *</label>
+                <input id="sec-edit-name" class="input" formControlName="name" />
+              </div>
               <div class="form-actions">
-                <button class="btn btn-primary" type="submit" [disabled]="sectionForm.invalid || busy()">Save</button>
-                <button class="btn btn-ghost" type="button" (click)="cancelSectionEdit()">Cancel</button>
+                <button class="btn btn-primary btn-sm" type="submit" [disabled]="sectionForm.invalid || busy()">Save</button>
+                <button class="btn btn-ghost btn-sm" type="button" (click)="cancelSectionEdit()">Cancel</button>
               </div>
             </form>
           } @else {
@@ -83,27 +87,27 @@
               @for (t of tablesForSection(sec.id); track t.id) {
                 @if (editingTableId() === t.id) {
                   <form class="inline-form" [formGroup]="tableForm" (ngSubmit)="saveTable()">
-                    <label>
-                      Section *
-                      <select formControlName="sectionId">
+                    <div class="field">
+                      <label class="field-label" for="tbl-edit-sec">Section *</label>
+                      <select id="tbl-edit-sec" class="select" formControlName="sectionId">
                         @for (s of sections(); track s.id) {
                           <option [value]="s.id">{{ s.name }}</option>
                         }
                       </select>
-                    </label>
-                    <label>
-                      Label *
-                      <input formControlName="label" />
-                    </label>
+                    </div>
+                    <div class="field">
+                      <label class="field-label" for="tbl-edit-label">Label *</label>
+                      <input id="tbl-edit-label" class="input" formControlName="label" />
+                    </div>
                     <div class="form-actions">
-                      <button class="btn btn-primary" type="submit" [disabled]="tableForm.invalid || busy()">Save</button>
-                      <button class="btn btn-ghost" type="button" (click)="cancelTableEdit()">Cancel</button>
+                      <button class="btn btn-primary btn-sm" type="submit" [disabled]="tableForm.invalid || busy()">Save</button>
+                      <button class="btn btn-ghost btn-sm" type="button" (click)="cancelTableEdit()">Cancel</button>
                     </div>
                   </form>
                 } @else {
                   <div class="table-row">
                     <span class="table-label">{{ t.label }}</span>
-                    <span class="table-status" [class.occupied]="t.status === 'Occupied'">{{ t.status }}</span>
+                    <span class="badge" [class.badge--warn]="t.status === 'Occupied'" [class.badge--ready]="t.status !== 'Occupied'">{{ t.status }}</span>
                     <div class="table-actions">
                       <button class="btn btn-sm" (click)="startEditTable(t)">Edit</button>
                       @if (confirming()?.type === 'table' && confirming()?.id === t.id) {
@@ -125,7 +129,7 @@
     </div>
 
     @if (sections().length === 0 && !creatingSection()) {
-      <p class="empty">No sections yet. Create one to get started.</p>
+      <div class="empty"><span class="empty-title">No sections yet</span><span class="empty-hint">Create a section, then add tables to it.</span></div>
     }
   </div>
 
@@ -134,18 +138,18 @@
     <h2 class="panel-title">Stations</h2>
 
     <div class="toolbar">
-      <button class="btn btn-primary" (click)="startCreateStation()">+ New Station</button>
+      <button class="btn btn-primary btn-sm" (click)="startCreateStation()">+ New Station</button>
     </div>
 
     @if (creatingStation()) {
       <form class="inline-form" [formGroup]="stationForm" (ngSubmit)="saveStation()">
-        <label>
-          Station name *
-          <input formControlName="name" />
-        </label>
+        <div class="field">
+          <label class="field-label" for="stn-name">Station name *</label>
+          <input id="stn-name" class="input" formControlName="name" />
+        </div>
         <div class="form-actions">
-          <button class="btn btn-primary" type="submit" [disabled]="stationForm.invalid || busy()">Save</button>
-          <button class="btn btn-ghost" type="button" (click)="cancelStationEdit()">Cancel</button>
+          <button class="btn btn-primary btn-sm" type="submit" [disabled]="stationForm.invalid || busy()">Save</button>
+          <button class="btn btn-ghost btn-sm" type="button" (click)="cancelStationEdit()">Cancel</button>
         </div>
       </form>
     }
@@ -155,13 +159,13 @@
         <div class="station-row">
           @if (editingStationId() === st.id) {
             <form class="inline-form" [formGroup]="stationForm" (ngSubmit)="saveStation()">
-              <label>
-                Station name *
-                <input formControlName="name" />
-              </label>
+              <div class="field">
+                <label class="field-label" for="stn-edit-name">Station name *</label>
+                <input id="stn-edit-name" class="input" formControlName="name" />
+              </div>
               <div class="form-actions">
-                <button class="btn btn-primary" type="submit" [disabled]="stationForm.invalid || busy()">Save</button>
-                <button class="btn btn-ghost" type="button" (click)="cancelStationEdit()">Cancel</button>
+                <button class="btn btn-primary btn-sm" type="submit" [disabled]="stationForm.invalid || busy()">Save</button>
+                <button class="btn btn-ghost btn-sm" type="button" (click)="cancelStationEdit()">Cancel</button>
               </div>
             </form>
           } @else {
@@ -183,7 +187,7 @@
     </div>
 
     @if (stations().length === 0 && !creatingStation()) {
-      <p class="empty">No stations yet. Create one to get started.</p>
+      <div class="empty"><span class="empty-title">No stations yet</span><span class="empty-hint">Stations route fired items to the right kitchen board.</span></div>
     }
   </div>
 </div>

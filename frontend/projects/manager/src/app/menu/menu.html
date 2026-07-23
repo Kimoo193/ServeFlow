@@ -1,7 +1,11 @@
+<header class="page-head">
+  <h1 class="page-title">Menu</h1>
+</header>
+
 @if (error()) {
-  <div class="error-banner" role="alert">
+  <div class="banner banner--error" role="alert">
     <span>{{ error() }}</span>
-    <button class="close-btn" (click)="closeError()" aria-label="Dismiss">&times;</button>
+    <button class="banner-dismiss" (click)="closeError()" aria-label="Dismiss">&times;</button>
   </div>
 }
 

@@ -1,62 +1,31 @@
-.error-banner {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-  margin-block-end: 16px;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: var(--sf-radius-sm);
-  color: var(--sf-voided);
-  font-size: 14px;
-}
+:host { display: block; }
 
-.close-btn {
-  margin-inline-start: auto;
-  background: none;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  color: var(--sf-voided);
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.close-btn:hover {
-  background: rgba(239, 68, 68, 0.15);
-}
+/* Banner comes from the shared kit. Menu-specific tab bar below (matches the
+   Staff tabs for a consistent tabbed-surface vocabulary). */
 
 .tabs {
   display: flex;
   gap: 4px;
   margin-block-end: 20px;
-  border-block-end: 1px solid rgba(15, 95, 82, 0.12);
+  border-block-end: 1px solid var(--sf-hair);
 }
-
 .tabs button {
   padding: 10px 20px;
   border: none;
   background: transparent;
   font: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--sf-served);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--sf-muted);
   cursor: pointer;
-  border-radius: var(--sf-radius-sm) var(--sf-radius-sm) 0 0;
-  transition: background 0.15s, color 0.15s;
+  border-block-end: 2px solid transparent;
+  margin-block-end: -1px;
+  transition: color 0.15s var(--ease-out), border-color 0.15s var(--ease-out);
 }
-
-.tabs button:hover {
-  background: rgba(15, 95, 82, 0.05);
-  color: var(--sf-spruce);
-}
-
+.tabs button:hover { color: var(--sf-spruce); }
 .tabs button.active {
   color: var(--sf-spruce-deep);
-  font-weight: 700;
-  box-shadow: inset 0 -2px 0 var(--sf-spruce);
+  border-block-end-color: var(--sf-spruce);
 }
 
-.tab-content {
-  min-height: 300px;
-}
+.tab-content { min-block-size: 300px; }

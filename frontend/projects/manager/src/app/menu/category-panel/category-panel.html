@@ -1,5 +1,5 @@
 @if (error()) {
-  <div class="error-line" role="alert">{{ error() }}</div>
+  <div class="banner banner--error" role="alert">{{ error() }}</div>
 }
 
 <div class="toolbar">
@@ -95,7 +95,7 @@
               } @else {
                 <div class="item-info">
                   <span class="item-name">{{ item.name }}</span>
-                  <span class="item-price">{{ item.price | currency:'EUR' }}</span>
+                  <span class="item-price">{{ item.price | currency:'EGP' }}</span>
                   <span class="item-avail" [class.out]="item.availability !== 'Available'" [class.hidden]="item.availability === 'Hidden'">
                     <select class="avail-select" [value]="item.availability"
                       (change)="onChangeAvailability($event.target, item, cat.id)" [disabled]="busy()">
@@ -190,5 +190,5 @@
 </div>
 
 @if (categories().length === 0 && !creatingCategory()) {
-  <p class="empty">No categories yet. Create one to get started.</p>
+  <div class="empty"><span class="empty-title">No categories yet</span><span class="empty-hint">Create a category, then add items to your menu.</span></div>
 }

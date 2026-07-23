@@ -1,7 +1,7 @@
 @if (error()) {
-  <div class="error-line" role="alert">
+  <div class="banner banner--error" role="alert">
     <span>{{ error() }}</span>
-    <button class="close-btn" (click)="closeError()" aria-label="Dismiss">&times;</button>
+    <button class="banner-dismiss" (click)="closeError()" aria-label="Dismiss">&times;</button>
   </div>
 }
 
@@ -106,5 +106,5 @@
 </div>
 
 @if (combos().length === 0 && !creatingCombo()) {
-  <p class="empty">No combos yet. Create one to get started.</p>
+  <div class="empty"><span class="empty-title">No combos yet</span><span class="empty-hint">Bundle existing items into a fixed-price combo.</span></div>
 }
