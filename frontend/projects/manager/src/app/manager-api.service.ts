@@ -53,12 +53,25 @@ export interface MenuTree {
   combos: MenuCombo[];
 }
 
-/* ── Standalone entities ── */
+  /* ── Standalone entities ── */
 
-export interface Station {
+  export interface Station {
   id: string;
   branchId: string;
   name: string;
+}
+
+export interface Section {
+  id: string;
+  branchId: string;
+  name: string;
+}
+
+export interface DiningTable {
+  id: string;
+  label: string;
+  status: string;
+  sectionId: string;
 }
 
 export interface ModifierGroupDto {
@@ -126,11 +139,81 @@ export class ManagerApiService {
     );
   }
 
+  /* ── Sections ── */
+
+  getSections(): Promise<Section[]> {
+    return firstValueFrom(
+      this.http.get<Section[]>(`${this.base}/sections`),
+    );
+  }
+
+  createSection(body: { name: string }): Promise<Section> {
+    return firstValueFrom(
+      this.http.post<Section>(`${this.base}/sections`, body),
+    );
+  }
+
+  updateSection(id: string, body: { name: string }): Promise<Section> {
+    return firstValueFrom(
+      this.http.put<Section>(`${this.base}/sections/${id}`, body),
+    );
+  }
+
+  deleteSection(id: string): Promise<void> {
+    return firstValueFrom(
+      this.http.delete<void>(`${this.base}/sections/${id}`),
+    );
+  }
+
+  /* ── Tables ── */
+
+  getTables(): Promise<DiningTable[]> {
+    return firstValueFrom(
+      this.http.get<DiningTable[]>(`${this.base}/tables`),
+    );
+  }
+
+  createTable(body: { sectionId: string; label: string }): Promise<DiningTable> {
+    return firstValueFrom(
+      this.http.post<DiningTable>(`${this.base}/tables`, body),
+    );
+  }
+
+  updateTable(id: string, body: { sectionId: string; label: string }): Promise<DiningTable> {
+    return firstValueFrom(
+      this.http.put<DiningTable>(`${this.base}/tables/${id}`, body),
+    );
+  }
+
+  deleteTable(id: string): Promise<void> {
+    return firstValueFrom(
+      this.http.delete<void>(`${this.base}/tables/${id}`),
+    );
+  }
+
   /* ── Stations ── */
 
   getStations(): Promise<Station[]> {
     return firstValueFrom(
       this.http.get<Station[]>(`${this.base}/stations`),
+    );
+  }
+
+  createStation(body: { branchId: string; name: string }): Promise<Station> {
+    return firstValueFrom(
+      this.http.post<Station>(`${this.base}/stations`, body),
+    );
+  }
+
+  updateStation(id: string, body: { branchId: string; name: string }): Promise<Station> {
+    return firstValueFrom(
+      this.http.put<Station>(`${this.base}/stations/${id}`, body),
+    );
+  }
+
+  deleteStation(id: string): Promise<void> {
+    return firstValueFrom(
+      this.http.delete<void>(`${this.base}/stations/${id}`),
     );
   }
 

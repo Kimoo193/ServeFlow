@@ -12,5 +12,10 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./menu/menu').then((m) => m.Menu),
   },
+  {
+    path: 'floor',
+    loadComponent: () =>
+      import('./floor/floor').then((m) => m.Floor),
+  },
   { path: '**', redirectTo: '' },
 ];
