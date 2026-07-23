@@ -126,8 +126,14 @@ restaurant-pos/
 
 These are genuinely undecided — do **not** invent answers; confirm with Kareem first.
 
-1. **KimooKit contract** *(blocks Slice 1)* — exact JWT claim names for tenant/branch/role,
-   and whether User/Role/permission rows live in KimooKit's tables or the Pos schema.
+1. ~~**KimooKit contract**~~ *(RESOLVED 2026-07-23)* — JWT claims are custom short names
+   `tenant_id` / `branch_id` / `user_id` / `role` (`MapInboundClaims=false`); see
+   `JwtTenantContext`. **User/Role/permission rows live in the Pos schema**, not KimooKit:
+   the `users` table holds the staff directory (`display_name`, single `role` enum from
+   `Owner|Manager|Cashier|Waiter|Kitchen`), extended by the Manager slice with an `is_active`
+   flag and a `role_permissions` matrix for granular grants. KimooKit remains the token/password
+   issuer; the Manager never touches credentials. Permission *enforcement* across existing
+   endpoints (they are `RequireAuthorization()` only today) is a separate, later concern.
 2. **Combo pricing** *(blocks Slice 2–3)* — a combo expands into component `OrderLine`s
    (BR-O-06) each with a snapshot `unit_price`, but `Combo.price` is a single bundle price.
    How the bundle price reconciles with the line snapshots for `subtotal` (BR-B-01) is open.
