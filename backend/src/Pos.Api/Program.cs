@@ -178,6 +178,7 @@ app.MapGet("/branches", async (PosDbContext dbContext, CancellationToken cancell
 
 app.MapMenuEndpoints();
 app.MapDiningAreaEndpoints();
+app.MapDashboardEndpoints();
 app.MapOrderEndpoints();
 
 app.MapHub<PosHub>("/posHub").RequireAuthorization();

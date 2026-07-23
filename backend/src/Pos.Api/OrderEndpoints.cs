@@ -323,6 +323,71 @@ internal static class OrderEndpoints
             return Results.Ok(result);
         });
 
+        // --- Order history (read-only manager view) ---
+        group.MapGet("/orders/history", async (int? limit, PosDbContext db, CancellationToken ct) =>
+        {
+            var actualLimit = Math.Clamp(limit ?? 100, 1, 500);
+
+            var recentCreated = await db.OrderEvents
+                .Where(oe => oe.EventType == OrderEventType.Created)
+                .OrderByDescending(oe => oe.PerformedAt)
+                .Take(actualLimit)
+                .Select(oe => new { oe.OrderId, oe.PerformedAt })
+                .ToListAsync(ct);
+
+            if (recentCreated.Count == 0)
+                return Results.Ok(Array.Empty<object>());
+
+            var orderIds = recentCreated.Select(r => r.OrderId).ToHashSet();
+
+            var orders = await db.Orders
+                .Where(o => orderIds.Contains(o.Id))
+                .ToListAsync(ct);
+
+            var tableIds = orders.Where(o => o.TableId.HasValue).Select(o => o.TableId!.Value).ToHashSet();
+            var tables = tableIds.Count > 0
+                ? await db.DiningTables.Where(t => tableIds.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Label, ct)
+                : [];
+
+            var completedEvents = await db.OrderEvents
+                .Where(oe => oe.EventType == OrderEventType.Completed && orderIds.Contains(oe.OrderId))
+                .GroupBy(oe => oe.OrderId)
+                .Select(g => new { OrderId = g.Key, PerformedAt = g.Min(oe => oe.PerformedAt) })
+                .ToListAsync(ct);
+
+            var lineCounts = await db.OrderLines
+                .Where(ol => orderIds.Contains(ol.OrderId) && ol.Status != OrderLineStatus.Voided)
+                .GroupBy(ol => ol.OrderId)
+                .Select(g => new { OrderId = g.Key, LineCount = g.Count() })
+                .ToListAsync(ct);
+
+            var createdMap = recentCreated.ToDictionary(r => r.OrderId, r => r.PerformedAt);
+            var completedMap = completedEvents.ToDictionary(c => c.OrderId, c => (DateTime?)c.PerformedAt);
+            var lineCountMap = lineCounts.ToDictionary(lc => lc.OrderId, lc => lc.LineCount);
+
+            var result = orders
+                .OrderByDescending(o => createdMap[o.Id])
+                .Select(o =>
+                {
+                    tables.TryGetValue(o.TableId ?? Guid.Empty, out var label);
+                    return new
+                    {
+                        id = o.Id,
+                        tableLabel = o.TableId.HasValue ? label : null,
+                        orderType = o.OrderType.ToString(),
+                        status = o.Status.ToString(),
+                        dailyNo = o.DailyNo,
+                        customerName = o.CustomerName,
+                        lineCount = lineCountMap.GetValueOrDefault(o.Id, 0),
+                        total = o.TotalAmount,
+                        createdAt = createdMap[o.Id].ToString("O"),
+                        completedAt = completedMap.GetValueOrDefault(o.Id)?.ToString("O"),
+                    };
+                });
+
+            return Results.Ok(result);
+        });
+
         // --- Order tracking (read) ---
         group.MapGet("/orders/{orderId:guid}", async (Guid orderId, PosDbContext db, CancellationToken ct) =>
         {

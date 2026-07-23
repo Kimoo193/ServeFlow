@@ -42,7 +42,7 @@ export class ManagerConnect {
         userId: this.userId().trim(),
         role: 'Manager',
       });
-      await this.router.navigate(['/menu']);
+      await this.router.navigate(['/dashboard']);
     } catch {
       this.error.set('Could not reach the backend. Is the API running on :5299?');
     } finally {

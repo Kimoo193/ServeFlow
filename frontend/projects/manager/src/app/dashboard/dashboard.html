@@ -1,0 +1,19 @@
+@if (error()) {
+  <div class="error-banner" role="alert">
+    <span>{{ error() }}</span>
+    <button class="close-btn" (click)="closeError()" aria-label="Dismiss error">&times;</button>
+  </div>
+}
+
+<div class="date-heading">Today &middot; <span class="sf-mono">{{ summary()?.date }}</span></div>
+
+<div class="stats">
+  <div class="stat-card">
+    <div class="stat-value sf-mono">{{ summary()?.ordersToday ?? '—' }}</div>
+    <div class="stat-label">Orders today</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value sf-mono">{{ summary()?.openNow ?? '—' }}</div>
+    <div class="stat-label">Open now</div>
+  </div>
+</div>

@@ -89,6 +89,27 @@ export interface ModifierDto {
   priceDelta: number;
 }
 
+/* ── Dashboard & History ── */
+
+export interface DashboardSummary {
+  date: string;
+  ordersToday: number;
+  openNow: number;
+}
+
+export interface OrderHistoryRow {
+  id: string;
+  tableLabel: string | null;
+  orderType: string;
+  status: string;
+  dailyNo: number | null;
+  customerName: string | null;
+  lineCount: number;
+  total: number | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
 /* ── Create / update payloads ── */
 
 export interface CreateCategoryRequest {
@@ -354,6 +375,21 @@ export class ManagerApiService {
   detachComboItem(comboId: string, itemId: string): Promise<void> {
     return firstValueFrom(
       this.http.delete<void>(`${this.base}/combos/${comboId}/items/${itemId}`),
+    );
+  }
+
+  /* ── Dashboard & History ── */
+
+  getDashboardSummary(): Promise<DashboardSummary> {
+    return firstValueFrom(
+      this.http.get<DashboardSummary>(`${this.base}/dashboard/summary`),
+    );
+  }
+
+  getOrderHistory(limit?: number): Promise<OrderHistoryRow[]> {
+    const params = limit ? `?limit=${limit}` : '';
+    return firstValueFrom(
+      this.http.get<OrderHistoryRow[]>(`${this.base}/orders/history${params}`),
     );
   }
 }

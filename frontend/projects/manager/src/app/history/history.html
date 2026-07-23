@@ -1,0 +1,41 @@
+@if (error()) {
+  <div class="error-banner" role="alert">
+    <span>{{ error() }}</span>
+    <button class="close-btn" (click)="closeError()" aria-label="Dismiss error">&times;</button>
+  </div>
+}
+
+<h2 class="page-title">Order history</h2>
+
+@if (orders().length === 0) {
+  <p class="empty">No orders yet.</p>
+} @else {
+  <div class="table-wrap">
+    <table class="history-table" role="table">
+      <thead>
+        <tr>
+          <th scope="col">Created</th>
+          <th scope="col">#</th>
+          <th scope="col">Table / Customer</th>
+          <th scope="col">Type</th>
+          <th scope="col">Status</th>
+          <th scope="col" class="col-num">Items</th>
+          <th scope="col" class="col-num">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (o of orders(); track o.id) {
+          <tr>
+            <td class="sf-mono">{{ formatTime(o.createdAt) }}</td>
+            <td class="sf-mono">{{ o.dailyNo ?? '—' }}</td>
+            <td>{{ o.tableLabel ?? o.customerName ?? '—' }}</td>
+            <td>{{ o.orderType }}</td>
+            <td><span class="status-badge" [class.completed]="o.status === 'Completed'">{{ o.status }}</span></td>
+            <td class="col-num sf-mono">{{ o.lineCount }}</td>
+            <td class="col-num sf-mono">{{ formatMoney(o.total) }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
