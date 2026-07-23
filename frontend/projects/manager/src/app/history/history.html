@@ -1,17 +1,35 @@
+<header class="page-head">
+  <h1 class="page-title">Order history</h1>
+  @if (!loading() && orders().length) {
+    <p class="page-sub"><span class="sf-mono">{{ orders().length }}</span> most recent</p>
+  }
+</header>
+
 @if (error()) {
-  <div class="error-banner" role="alert">
+  <div class="banner banner--error" role="alert">
     <span>{{ error() }}</span>
-    <button class="close-btn" (click)="closeError()" aria-label="Dismiss error">&times;</button>
+    <button class="banner-dismiss" (click)="closeError()" aria-label="Dismiss error">&times;</button>
   </div>
 }
 
-<h2 class="page-title">Order history</h2>
-
-@if (orders().length === 0) {
-  <p class="empty">No orders yet.</p>
+@if (loading()) {
+  <div class="data-table-wrap" aria-hidden="true">
+    <table class="data-table">
+      <tbody>
+        @for (r of [1,2,3,4,5]; track r) {
+          <tr><td><div class="skeleton skeleton--line" style="inline-size: 100%;"></div></td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+} @else if (orders().length === 0) {
+  <div class="empty">
+    <span class="empty-title">No orders yet</span>
+    <span class="empty-hint">Completed and in-progress orders will appear here once the floor starts taking them.</span>
+  </div>
 } @else {
-  <div class="table-wrap">
-    <table class="history-table" role="table">
+  <div class="data-table-wrap">
+    <table class="data-table">
       <thead>
         <tr>
           <th scope="col">Created</th>
@@ -19,8 +37,8 @@
           <th scope="col">Table / Customer</th>
           <th scope="col">Type</th>
           <th scope="col">Status</th>
-          <th scope="col" class="col-num">Items</th>
-          <th scope="col" class="col-num">Total</th>
+          <th scope="col" class="num">Items</th>
+          <th scope="col" class="num">Total</th>
         </tr>
       </thead>
       <tbody>
@@ -30,9 +48,9 @@
             <td class="sf-mono">{{ o.dailyNo ?? '—' }}</td>
             <td>{{ o.tableLabel ?? o.customerName ?? '—' }}</td>
             <td>{{ o.orderType }}</td>
-            <td><span class="status-badge" [class.completed]="o.status === 'Completed'">{{ o.status }}</span></td>
-            <td class="col-num sf-mono">{{ o.lineCount }}</td>
-            <td class="col-num sf-mono">{{ formatMoney(o.total) }}</td>
+            <td><span class="badge {{ badgeClass(o.status) }}">{{ o.status }}</span></td>
+            <td class="num sf-mono">{{ o.lineCount }}</td>
+            <td class="num sf-mono">{{ formatMoney(o.total) }}</td>
           </tr>
         }
       </tbody>

@@ -16,6 +16,7 @@ export class OrderHistory implements OnInit {
 
   readonly orders = signal<OrderHistoryRow[]>([]);
   readonly error = signal<string | null>(null);
+  readonly loading = signal(true);
 
   ngOnInit(): void {
     if (!this.session.isConnected()) {
@@ -26,11 +27,25 @@ export class OrderHistory implements OnInit {
   }
 
   private async load(): Promise<void> {
+    this.loading.set(true);
     try {
       this.orders.set(await this.api.getOrderHistory());
       this.error.set(null);
     } catch (e: unknown) {
       this.error.set(this.extractError(e, 'Failed to load order history'));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  /** Map an order status to a Service Spruce badge modifier class. */
+  badgeClass(status: string): string {
+    switch (status) {
+      case 'Completed': return 'badge--ready';
+      case 'Cancelled': return 'badge--voided';
+      case 'InProgress': return 'badge--preparing';
+      case 'Open': return 'badge--fired';
+      default: return 'badge--muted';
     }
   }
 

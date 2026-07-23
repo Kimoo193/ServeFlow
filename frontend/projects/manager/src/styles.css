@@ -1,7 +1,10 @@
 @import '../../shared/src/design/service-spruce.css';
+@import '../../shared/src/design/ui.css';
 
 html, body {
   height: 100%;
   background: var(--sf-porcelain);
   color: var(--sf-ink);
+  font-size: var(--fs-base);
+  line-height: 1.5;
 }

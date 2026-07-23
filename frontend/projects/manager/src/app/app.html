@@ -4,17 +4,20 @@
       <div class="brand">
         <span class="mark" aria-hidden="true"></span>
         <span class="word">ServeFlow</span>
-        <span class="role">Manager</span>
+        <span class="role">{{ session.context()?.role ?? 'Manager' }}</span>
       </div>
-      <a class="nav-link" routerLink="/dashboard" routerLinkActive="active" aria-current="page">Dashboard</a>
-      <a class="nav-link" routerLink="/menu" routerLinkActive="active" aria-current="page">Menu</a>
-      <a class="nav-link" routerLink="/floor" routerLinkActive="active" aria-current="page">Floor</a>
-      <a class="nav-link" routerLink="/history" routerLinkActive="active" aria-current="page">History</a>
-      <a class="nav-link" routerLink="/staff" routerLinkActive="active" aria-current="page">Staff</a>
+      <span class="nav-eyebrow">Manage</span>
+      <a class="nav-link" routerLink="/dashboard" routerLinkActive="active" aria-current="page"><span class="dot" aria-hidden="true"></span>Dashboard</a>
+      <a class="nav-link" routerLink="/menu" routerLinkActive="active" aria-current="page"><span class="dot" aria-hidden="true"></span>Menu</a>
+      <a class="nav-link" routerLink="/floor" routerLinkActive="active" aria-current="page"><span class="dot" aria-hidden="true"></span>Floor</a>
+      <a class="nav-link" routerLink="/history" routerLinkActive="active" aria-current="page"><span class="dot" aria-hidden="true"></span>History</a>
+      <a class="nav-link" routerLink="/staff" routerLinkActive="active" aria-current="page"><span class="dot" aria-hidden="true"></span>Staff</a>
       <button class="disconnect" (click)="disconnect()">Disconnect</button>
     </nav>
     <main class="content">
-      <router-outlet />
+      <div class="content-inner">
+        <router-outlet />
+      </div>
     </main>
   </div>
 } @else {

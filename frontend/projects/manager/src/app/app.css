@@ -6,117 +6,138 @@
 }
 
 .sidebar {
-  inline-size: 220px;
+  inline-size: 224px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 20px 12px;
-  background: #fff;
-  border-inline-end: 1px solid rgba(15, 95, 82, 0.1);
+  gap: 2px;
+  padding: 18px 12px;
+  background: var(--sf-surface);
+  border-inline-end: 1px solid var(--sf-hair);
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-block-end: 20px;
+  margin-block-end: 22px;
   padding-inline: 8px;
 }
 
 .mark {
   inline-size: 12px;
-  block-size: 20px;
+  block-size: 22px;
   border-radius: 3px;
   background: linear-gradient(var(--sf-mint), var(--sf-spruce));
+  flex-shrink: 0;
 }
 
 .word {
   font-weight: 800;
   letter-spacing: -0.02em;
-  font-size: 18px;
+  font-size: var(--fs-md);
   color: var(--sf-ink);
 }
 
 .role {
   margin-inline-start: auto;
   font-size: 10px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--sf-served);
+  letter-spacing: 0.12em;
+  color: var(--sf-spruce);
+  background: rgba(15, 95, 82, 0.09);
+  padding: 3px 7px;
+  border-radius: 999px;
+}
+
+.nav-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--sf-muted);
+  padding: 4px 12px;
+  margin-block-start: 6px;
 }
 
 .nav-link {
-  display: block;
-  padding: 10px 12px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
   border-radius: var(--sf-radius-sm);
-  font-size: 14px;
+  font-size: var(--fs-base);
   font-weight: 500;
-  color: var(--sf-served);
+  color: var(--sf-muted-2);
   text-decoration: none;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out);
 }
 
-.nav-link:hover {
-  background: rgba(15, 95, 82, 0.06);
-  color: var(--sf-spruce);
-}
+.nav-link:hover { background: rgba(15, 95, 82, 0.06); color: var(--sf-spruce); }
 
 .nav-link.active {
-  background: rgba(15, 95, 82, 0.1);
+  background: rgba(15, 95, 82, 0.10);
   color: var(--sf-spruce-deep);
   font-weight: 700;
 }
 
+/* dot marker keeps the active cue without a banned side-stripe */
+.nav-link .dot {
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0;
+  transition: opacity 0.15s var(--ease-out);
+  flex-shrink: 0;
+}
+.nav-link.active .dot { opacity: 1; }
+
 .disconnect {
   margin-block-start: auto;
-  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
   border: none;
   border-radius: var(--sf-radius-sm);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
   color: var(--sf-voided);
   background: transparent;
   cursor: pointer;
   text-align: start;
+  transition: background 0.15s var(--ease-out);
 }
-
-.disconnect:hover {
-  background: rgba(239, 68, 68, 0.08);
-}
+.disconnect:hover { background: rgba(239, 68, 68, 0.08); }
 
 .content {
   flex: 1;
+  min-inline-size: 0;
   overflow-y: auto;
-  padding: 24px;
+  padding: 28px clamp(16px, 4vw, 40px);
 }
 
-@media (max-width: 640px) {
+.content-inner { max-inline-size: 1100px; margin-inline: auto; }
+
+@media (max-width: 720px) {
+  .shell { flex-direction: column; }
   .sidebar {
-    inline-size: 56px;
-    padding: 12px 8px;
+    inline-size: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 10px;
+    overflow-x: auto;
+    border-inline-end: none;
+    border-block-end: 1px solid var(--sf-hair);
   }
-  .word, .role, .nav-link {
-    display: none;
-  }
-  .nav-link.active {
-    display: block;
-    font-size: 0;
-  }
-  .nav-link.active::before {
-    content: 'M';
-    font-size: 16px;
-    font-weight: 700;
-  }
-  .brand {
-    justify-content: center;
-  }
-  .disconnect {
-    font-size: 0;
-    text-align: center;
-  }
-  .disconnect::before {
-    content: '✕';
-    font-size: 16px;
-  }
+  .brand { margin: 0 8px 0 0; }
+  .nav-eyebrow { display: none; }
+  .nav-link { padding: 8px 11px; white-space: nowrap; }
+  .nav-link .dot { display: none; }
+  .disconnect { margin-block-start: 0; margin-inline-start: auto; }
 }
