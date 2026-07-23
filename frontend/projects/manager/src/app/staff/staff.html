@@ -1,7 +1,11 @@
+<header class="page-head">
+  <h1 class="page-title">Staff &amp; roles</h1>
+</header>
+
 @if (error()) {
-  <div class="error-banner" role="alert">
+  <div class="banner banner--error" role="alert">
     <span>{{ error() }}</span>
-    <button class="close-btn" (click)="closeError()" aria-label="Dismiss error">&times;</button>
+    <button class="banner-dismiss" (click)="closeError()" aria-label="Dismiss error">&times;</button>
   </div>
 }
 
@@ -13,7 +17,7 @@
 @if (activeTab() === 'directory') {
   <section aria-label="Staff directory">
     <div class="section-head">
-      <h2>Staff directory</h2>
+      <h2 class="section-title">Staff directory</h2>
       @if (!creatingUser()) {
         <button class="btn btn-primary btn-sm" (click)="startCreate()">Add staff</button>
       }
@@ -21,18 +25,20 @@
 
     @if (creatingUser()) {
       <form class="inline-form" [formGroup]="userForm" (ngSubmit)="saveCreate()">
-        <label>Name
-          <input formControlName="displayName" placeholder="Display name" autocomplete="off" />
-        </label>
-        <label>Role
-          <select formControlName="role">
+        <div class="field">
+          <label class="field-label" for="new-name">Name</label>
+          <input id="new-name" class="input" formControlName="displayName" placeholder="Display name" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="new-role">Role</label>
+          <select id="new-role" class="select" formControlName="role">
             <option value="Owner">Owner</option>
             <option value="Manager">Manager</option>
             <option value="Cashier">Cashier</option>
             <option value="Waiter">Waiter</option>
             <option value="Kitchen">Kitchen</option>
           </select>
-        </label>
+        </div>
         <div class="form-actions">
           <button type="submit" class="btn btn-primary btn-sm" [disabled]="userForm.invalid || busy()">
             {{ busy() ? 'Saving…' : 'Create' }}
@@ -43,7 +49,10 @@
     }
 
     @if (users().length === 0 && !creatingUser()) {
-      <p class="empty">No staff yet. Add your first team member.</p>
+      <div class="empty">
+        <span class="empty-title">No staff yet</span>
+        <span class="empty-hint">Add your first team member and assign them a role.</span>
+      </div>
     }
 
     <div class="user-list">
@@ -51,16 +60,18 @@
         <div class="user-card">
           @if (editingUserId() === user.id) {
             <form class="inline-form" [formGroup]="userForm" (ngSubmit)="saveEdit()">
-              <label>Name
-                <input formControlName="displayName" autocomplete="off" />
-              </label>
-              <label>Role
-                <select formControlName="role">
+              <div class="field">
+                <label class="field-label" for="edit-name">Name</label>
+                <input id="edit-name" class="input" formControlName="displayName" autocomplete="off" />
+              </div>
+              <div class="field">
+                <label class="field-label" for="edit-role">Role</label>
+                <select id="edit-role" class="select" formControlName="role">
                   @for (r of ['Owner', 'Manager', 'Cashier', 'Waiter', 'Kitchen']; track r) {
                     <option [value]="r">{{ r }}</option>
                   }
                 </select>
-              </label>
+              </div>
               <label class="checkbox-label">
                 <input type="checkbox" formControlName="isActive" />
                 Active
@@ -76,7 +87,7 @@
             <div class="user-info">
               <span class="user-name">{{ user.displayName }}</span>
               <span class="user-role">{{ user.role }}</span>
-              <span class="badge" [class.active-badge]="user.isActive" [class.inactive-badge]="!user.isActive">
+              <span class="badge" [class.badge--active]="user.isActive" [class.badge--inactive]="!user.isActive">
                 {{ user.isActive ? 'Active' : 'Inactive' }}
               </span>
             </div>
@@ -103,9 +114,9 @@
 @if (activeTab() === 'matrix') {
   <section aria-label="Permissions matrix">
     <div class="section-head">
-      <h2>Permissions</h2>
-      <p class="helper-note">Configure which permissions each role has. Permission enforcement is not yet wired to existing endpoints — this is a configuration surface only.</p>
+      <h2 class="section-title">Permissions</h2>
     </div>
+    <p class="helper-note">Configure which permissions each role has. Owner always has every permission; other roles get what you grant here.</p>
 
     <form [formGroup]="matrixForm">
       @if (rolePermissions(); as rp) {
@@ -144,7 +155,7 @@
           </table>
         </div>
       } @else {
-        <p class="empty">Loading permissions…</p>
+        <div class="empty"><span class="empty-hint">Loading permissions…</span></div>
       }
     </form>
   </section>

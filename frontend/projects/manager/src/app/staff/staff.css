@@ -1,43 +1,34 @@
 :host{display:block}
-h2{font-size:18px;font-weight:700;margin:0;color:var(--sf-ink)}
-.tabs{display:flex;margin-block-end:20px;border-block-end:1px solid rgba(15,95,82,0.12)}
-.tabs button{padding:10px 20px;border:0;background:0 0;font:inherit;font-size:14px;font-weight:500;color:var(--sf-served);cursor:pointer;border-block-end:2px solid transparent;transition:color .15s,border-color .15s}
+
+/* Buttons, banners, badges, fields and empty states come from the shared kit
+   (ui.css). Only Staff-specific layout lives here. */
+
+.tabs{display:flex;margin-block-end:20px;border-block-end:1px solid var(--sf-hair)}
+.tabs button{padding:10px 20px;border:0;background:0 0;font:inherit;font-size:var(--fs-base);font-weight:600;color:var(--sf-muted);cursor:pointer;border-block-end:2px solid transparent;transition:color .15s var(--ease-out),border-color .15s var(--ease-out)}
 .tabs button:hover{color:var(--sf-spruce)}
-.tabs button.active{color:var(--sf-spruce-deep);font-weight:700;border-block-end-color:var(--sf-spruce)}
-.error-banner{display:flex;align-items:center;gap:12px;padding:10px 16px;margin-block-end:16px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:var(--sf-radius-sm);color:#b91c1c;font-size:14px}
-.error-banner .close-btn{margin-inline-start:auto;border:0;background:0 0;font-size:20px;cursor:pointer;color:inherit;padding:0;line-height:1}
-.section-head{display:flex;align-items:center;gap:12px;margin-block-end:16px;flex-wrap:wrap}
-.helper-note{width:100%;font-size:13px;color:var(--sf-served);margin:0}
-.empty{padding:32px 0;color:var(--sf-served);font-size:14px}
-.inline-form{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;padding:16px;background:var(--sf-porcelain);border-radius:var(--sf-radius-sm);border:1px solid rgba(15,95,82,0.08)}
-.inline-form label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--sf-served);text-transform:uppercase;letter-spacing:.04em}
-.inline-form input,.inline-form select{padding:8px 12px;border:1px solid rgba(15,95,82,0.15);border-radius:var(--sf-radius-sm);font:inherit;font-size:14px;background:#fff;min-width:160px}
-.checkbox-label{flex-direction:row!important;align-items:center;gap:8px;font-size:14px!important;text-transform:none!important;color:var(--sf-ink)!important}
+.tabs button.active{color:var(--sf-spruce-deep);border-block-end-color:var(--sf-spruce)}
+
+.helper-note{inline-size:100%;font-size:var(--fs-sm);color:var(--sf-muted);margin:0}
+
+.inline-form{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;padding:16px;background:var(--sf-surface-2);border-radius:var(--sf-radius-sm);border:1px solid var(--sf-hair)}
+.inline-form .field{min-inline-size:160px}
+.checkbox-label{flex-direction:row;align-items:center;gap:8px;font-size:var(--fs-base);color:var(--sf-ink)}
 .form-actions{display:flex;gap:8px;align-items:center}
+
 .user-list{display:flex;flex-direction:column;gap:8px}
-.user-card{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:#fff;border:1px solid rgba(15,95,82,0.1);border-radius:var(--sf-radius-sm);flex-wrap:wrap}
+.user-card{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:var(--sf-surface);border:1px solid var(--sf-hair);border-radius:var(--sf-radius-sm);flex-wrap:wrap}
 .user-info{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.user-name{font-weight:600;font-size:14px;color:var(--sf-ink)}
-.user-role{font-size:13px;color:var(--sf-served);padding:2px 8px;background:var(--sf-porcelain);border-radius:var(--sf-radius-sm)}
+.user-name{font-weight:600;font-size:var(--fs-base);color:var(--sf-ink)}
+.user-role{font-size:var(--fs-sm);color:var(--sf-muted-2);padding:2px 8px;background:var(--sf-surface-2);border:1px solid var(--sf-hair);border-radius:var(--sf-radius-sm)}
 .user-actions{display:flex;align-items:center;gap:8px}
-.badge{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;padding:2px 8px;border-radius:var(--sf-radius-sm)}
-.active-badge{background:rgba(34,197,94,0.12);color:#15803d}
-.inactive-badge{background:rgba(239,68,68,0.1);color:#b91c1c}
 .confirm-group{display:inline-flex;gap:6px}
-.btn{padding:8px 14px;border:1px solid transparent;border-radius:var(--sf-radius-sm);font:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
-.btn:disabled{opacity:.5;cursor:default}
-.btn-primary{background:var(--sf-spruce);color:#fff}
-.btn-primary:hover:not(:disabled){background:var(--sf-spruce-deep)}
-.btn-danger{background:transparent;color:#b91c1c;border-color:rgba(239,68,68,0.3)}
-.btn-danger:hover:not(:disabled){background:rgba(239,68,68,0.08)}
-.btn-ghost{background:transparent;color:var(--sf-served);border-color:rgba(15,95,82,0.15)}
-.btn-ghost:hover:not(:disabled){background:rgba(15,95,82,0.06);color:var(--sf-spruce)}
-.btn-sm{padding:6px 10px;font-size:12px}
-.matrix-scroll{overflow-x:auto}
-.matrix-table{border-collapse:collapse;width:100%;font-size:13px}
-.matrix-table td,.matrix-table th{padding:8px 12px;border:1px solid rgba(15,95,82,0.1);text-align:start}
-.matrix-table thead th{background:var(--sf-porcelain);font-weight:600;font-size:12px;text-transform:uppercase;color:var(--sf-served);white-space:nowrap}
+
+.matrix-scroll{overflow-x:auto;border:1px solid var(--sf-hair);border-radius:var(--sf-radius)}
+.matrix-table{border-collapse:collapse;inline-size:100%;font-size:var(--fs-base)}
+.matrix-table td,.matrix-table th{padding:9px 12px;border-block-end:1px solid var(--sf-hair);text-align:start}
+.matrix-table thead th{background:var(--sf-surface-2);font-weight:700;font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:0.06em;color:var(--sf-muted);white-space:nowrap}
 .matrix-table tbody th{font-weight:600;color:var(--sf-ink);white-space:nowrap}
-.perm-col,.action-col{text-align:center!important}
+.matrix-table tbody tr:last-child td,.matrix-table tbody tr:last-child th{border-block-end:none}
+.perm-col,.action-col{text-align:center}
 .perm-cell,.action-cell{text-align:center}
-.perm-cell input[type="checkbox"]{width:18px;height:18px;cursor:pointer}
+.perm-cell input[type="checkbox"]{inline-size:18px;block-size:18px;cursor:pointer;accent-color:var(--sf-spruce)}
