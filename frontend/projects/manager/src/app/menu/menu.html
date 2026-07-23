@@ -1,0 +1,32 @@
+@if (error()) {
+  <div class="error-banner" role="alert">
+    <span>{{ error() }}</span>
+    <button class="close-btn" (click)="closeError()" aria-label="Dismiss">&times;</button>
+  </div>
+}
+
+<div class="tabs" role="tablist">
+  <button role="tab" [attr.aria-selected]="activeTab() === 'categories'" [class.active]="activeTab() === 'categories'" (click)="activeTab.set('categories')">
+    Categories &amp; Items
+  </button>
+  <button role="tab" [attr.aria-selected]="activeTab() === 'modifiers'" [class.active]="activeTab() === 'modifiers'" (click)="activeTab.set('modifiers')">
+    Modifier Groups
+  </button>
+  <button role="tab" [attr.aria-selected]="activeTab() === 'combos'" [class.active]="activeTab() === 'combos'" (click)="activeTab.set('combos')">
+    Combos
+  </button>
+</div>
+
+<div class="tab-content">
+  @switch (activeTab()) {
+    @case ('categories') {
+      <app-category-panel [menuTree]="menuTree()" [stations]="stations()" (refresh)="refreshTree()" />
+    }
+    @case ('modifiers') {
+      <app-modifier-library (refresh)="refreshTree()" />
+    }
+    @case ('combos') {
+      <app-combo-panel [menuTree]="menuTree()" (refresh)="refreshTree()" />
+    }
+  }
+</div>

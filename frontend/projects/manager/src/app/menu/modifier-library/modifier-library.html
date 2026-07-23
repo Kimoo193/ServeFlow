@@ -1,0 +1,144 @@
+@if (error()) {
+  <div class="error-line" role="alert">
+    <span>{{ error() }}</span>
+    <button class="close-btn" (click)="closeError()" aria-label="Dismiss">&times;</button>
+  </div>
+}
+
+<div class="toolbar">
+  <button class="btn btn-primary" (click)="startCreateGroup()">+ New Modifier Group</button>
+</div>
+
+@if (creatingGroup()) {
+  <form class="inline-form" [formGroup]="groupForm" (ngSubmit)="saveGroup()">
+    <label>
+      Name *
+      <input formControlName="name" />
+    </label>
+    <label>
+      Min select
+      <input type="number" formControlName="minSelect" min="0" />
+    </label>
+    <label>
+      Max select
+      <input type="number" formControlName="maxSelect" min="0" />
+    </label>
+    <label class="checkbox-label">
+      <input type="checkbox" formControlName="required" />
+      Required
+    </label>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit" [disabled]="groupForm.invalid || busy()">Save</button>
+      <button class="btn btn-ghost" type="button" (click)="cancelGroupEdit()">Cancel</button>
+    </div>
+  </form>
+}
+
+<div class="group-list">
+  @for (g of groups(); track g.id) {
+    <div class="group-card">
+      @if (editingGroupId() === g.id) {
+        <form class="inline-form" [formGroup]="groupForm" (ngSubmit)="saveGroup()">
+          <label>
+            Name *
+            <input formControlName="name" />
+          </label>
+          <label>
+            Min select
+            <input type="number" formControlName="minSelect" min="0" />
+          </label>
+          <label>
+            Max select
+            <input type="number" formControlName="maxSelect" min="0" />
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" formControlName="required" />
+            Required
+          </label>
+          <div class="form-actions">
+            <button class="btn btn-primary" type="submit" [disabled]="groupForm.invalid || busy()">Save</button>
+            <button class="btn btn-ghost" type="button" (click)="cancelGroupEdit()">Cancel</button>
+          </div>
+        </form>
+      } @else {
+        <div class="group-header" (click)="toggleExpand(g.id)" role="button" tabindex="0" (keydown.enter)="toggleExpand(g.id)">
+          <span class="expand-icon">{{ expandedGroupId() === g.id ? '▾' : '▸' }}</span>
+          <span class="group-name">{{ g.name }}</span>
+          <span class="group-meta">{{ g.minSelect }}-{{ g.maxSelect }}{{ g.required ? ' · Required' : '' }}</span>
+          <div class="group-actions" (click)="$event.stopPropagation()">
+            <button class="btn btn-sm" (click)="startEditGroup(g)">Edit</button>
+            @if (confirming()?.type === 'group' && confirming()?.id === g.id) {
+              <span class="confirm-group">
+                <button class="btn btn-sm btn-danger" (click)="executeDeleteGroup(g.id)" [disabled]="busy()">Confirm</button>
+                <button class="btn btn-sm btn-ghost" (click)="cancelConfirm()">Cancel</button>
+              </span>
+            } @else {
+              <button class="btn btn-sm btn-danger" (click)="requestDeleteGroup(g.id)">Delete</button>
+            }
+          </div>
+        </div>
+      }
+
+      @if (expandedGroupId() === g.id) {
+        <div class="modifier-list">
+          @if (creatingModifierGroupId() === g.id) {
+            <form class="inline-form modifier-form" [formGroup]="modifierForm" (ngSubmit)="saveModifier(g.id)">
+              <label>
+                Name *
+                <input formControlName="name" />
+              </label>
+              <label>
+                Price delta
+                <input type="number" step="0.01" formControlName="priceDelta" />
+              </label>
+              <div class="form-actions">
+                <button class="btn btn-primary" type="submit" [disabled]="modifierForm.invalid || busy()">Save</button>
+                <button class="btn btn-ghost" type="button" (click)="cancelModifierEdit()">Cancel</button>
+              </div>
+            </form>
+          }
+
+          @for (m of modifiersForGroup(g.id); track m.id) {
+            <div class="modifier-row">
+              @if (editingModifierId() === m.id) {
+                <form class="inline-form modifier-form" [formGroup]="modifierForm" (ngSubmit)="saveModifier(g.id)">
+                  <label>
+                    Name *
+                    <input formControlName="name" />
+                  </label>
+                  <label>
+                    Price delta
+                    <input type="number" step="0.01" formControlName="priceDelta" />
+                  </label>
+                  <div class="form-actions">
+                    <button class="btn btn-primary" type="submit" [disabled]="modifierForm.invalid || busy()">Save</button>
+                    <button class="btn btn-ghost" type="button" (click)="cancelModifierEdit()">Cancel</button>
+                  </div>
+                </form>
+              } @else {
+                <span class="modifier-name">{{ m.name }}</span>
+                <span class="modifier-delta">{{ m.priceDelta >= 0 ? '+' : '' }}{{ m.priceDelta }}</span>
+                <div class="modifier-actions">
+                  <button class="btn btn-sm" (click)="startEditModifier(m)">Edit</button>
+                  @if (confirming()?.type === 'modifier' && confirming()?.id === m.id) {
+                    <span class="confirm-group">
+                      <button class="btn btn-sm btn-danger" (click)="executeDeleteModifier(m.id)" [disabled]="busy()">Confirm</button>
+                      <button class="btn btn-sm btn-ghost" (click)="cancelConfirm()">Cancel</button>
+                    </span>
+                  } @else {
+                    <button class="btn btn-sm btn-danger" (click)="requestDeleteModifier(m.id)">Delete</button>
+                  }
+                </div>
+              }
+            </div>
+          }
+          <button class="btn btn-sm btn-ghost add-modifier-btn" (click)="startCreateModifier(g.id)">+ Add modifier</button>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+@if (groups().length === 0 && !creatingGroup()) {
+  <p class="empty">No modifier groups yet. Create one to get started.</p>
+}

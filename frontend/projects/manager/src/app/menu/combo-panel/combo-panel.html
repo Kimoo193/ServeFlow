@@ -1,0 +1,110 @@
+@if (error()) {
+  <div class="error-line" role="alert">
+    <span>{{ error() }}</span>
+    <button class="close-btn" (click)="closeError()" aria-label="Dismiss">&times;</button>
+  </div>
+}
+
+<div class="toolbar">
+  <button class="btn btn-primary" (click)="startCreateCombo()">+ New Combo</button>
+</div>
+
+@if (creatingCombo()) {
+  <form class="inline-form" [formGroup]="comboForm" (ngSubmit)="saveCombo()">
+    <label>
+      Name *
+      <input formControlName="name" />
+    </label>
+    <label>
+      Price
+      <input type="number" step="0.01" min="0" formControlName="price" />
+    </label>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit" [disabled]="comboForm.invalid || busy()">Save</button>
+      <button class="btn btn-ghost" type="button" (click)="cancelComboEdit()">Cancel</button>
+    </div>
+  </form>
+}
+
+<div class="combo-list">
+  @for (c of combos(); track c.id) {
+    <div class="combo-card">
+      @if (editingComboId() === c.id) {
+        <form class="inline-form" [formGroup]="comboForm" (ngSubmit)="saveCombo()">
+          <label>
+            Name *
+            <input formControlName="name" />
+          </label>
+          <label>
+            Price
+            <input type="number" step="0.01" min="0" formControlName="price" />
+          </label>
+          <div class="form-actions">
+            <button class="btn btn-primary" type="submit" [disabled]="comboForm.invalid || busy()">Save</button>
+            <button class="btn btn-ghost" type="button" (click)="cancelComboEdit()">Cancel</button>
+          </div>
+        </form>
+      } @else {
+        <div class="combo-header">
+          <span class="combo-name">{{ c.name }}</span>
+          <span class="combo-price">{{ c.price }}</span>
+          <div class="combo-actions">
+            <button class="btn btn-sm" (click)="startEditCombo(c)">Edit</button>
+            @if (confirming()?.type === 'combo' && confirming()?.id === c.id) {
+              <span class="confirm-group">
+                <button class="btn btn-sm btn-danger" (click)="executeDeleteCombo(c.id)" [disabled]="busy()">Confirm</button>
+                <button class="btn btn-sm btn-ghost" (click)="cancelConfirm()">Cancel</button>
+              </span>
+            } @else {
+              <button class="btn btn-sm btn-danger" (click)="requestDeleteCombo(c.id)">Delete</button>
+            }
+          </div>
+        </div>
+
+        <div class="combo-items">
+          <span class="items-label">Items:</span>
+          @for (ci of c.items; track ci.itemId) {
+            <div class="combo-item-row">
+              <span class="combo-item-qty">{{ ci.quantity }}x</span>
+              <span class="combo-item-name">{{ itemName(ci.itemId) }}</span>
+              @if (isConfirmingItem(c.id, ci.itemId)) {
+                <span class="confirm-group">
+                  <button class="btn btn-sm btn-danger" (click)="executeDeleteItem(c.id, ci.itemId)" [disabled]="busy()">Confirm</button>
+                  <button class="btn btn-sm btn-ghost" (click)="cancelConfirm()">Cancel</button>
+                </span>
+              } @else {
+                <button class="btn btn-sm btn-danger" (click)="requestDeleteItem(c.id, ci.itemId)">Remove</button>
+              }
+            </div>
+          }
+
+          @if (attachItemComboId() === c.id) {
+            <div class="attach-form">
+              <select (change)="onAttachItemSelect($event.target)">
+                <option value="">Select item…</option>
+                @for (item of availableItemsForCombo(c); track item.id) {
+                  <option [value]="item.id">{{ item.name }} ({{ item.categoryName }})</option>
+                }
+              </select>
+              <label>
+                Qty
+                <input type="number" min="1" [value]="attachItemQuantity()"
+                  (change)="onAttachItemQuantity($event.target)" />
+              </label>
+              <button class="btn btn-sm btn-primary" (click)="attachItem(c.id)" [disabled]="!attachItemSelect() || busy()">Attach</button>
+              <button class="btn btn-sm btn-ghost" (click)="cancelAttachItem()">Cancel</button>
+            </div>
+          } @else {
+            @if (availableItemsForCombo(c).length > 0) {
+              <button class="btn btn-sm btn-ghost" (click)="startAttachItem(c.id)">+ Add item</button>
+            }
+          }
+        </div>
+      }
+    </div>
+  }
+</div>
+
+@if (combos().length === 0 && !creatingCombo()) {
+  <p class="empty">No combos yet. Create one to get started.</p>
+}

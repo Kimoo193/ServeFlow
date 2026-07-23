@@ -1,0 +1,194 @@
+@if (error()) {
+  <div class="error-line" role="alert">{{ error() }}</div>
+}
+
+<div class="toolbar">
+  <button class="btn btn-primary" (click)="startCreateCategory()">+ New Category</button>
+</div>
+
+@if (creatingCategory()) {
+  <form class="inline-form" [formGroup]="categoryForm" (ngSubmit)="saveCategory()">
+    <label>
+      Name *
+      <input formControlName="name" />
+    </label>
+    <label>
+      Sort order
+      <input type="number" formControlName="sortOrder" min="0" />
+    </label>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit" [disabled]="categoryForm.invalid || busy()">Save</button>
+      <button class="btn btn-ghost" type="button" (click)="cancelCategoryEdit()">Cancel</button>
+    </div>
+  </form>
+}
+
+<div class="cat-list">
+  @for (cat of categories(); track cat.id) {
+    <div class="cat-card">
+      @if (editingCategoryId() === cat.id) {
+        <form class="inline-form" [formGroup]="categoryForm" (ngSubmit)="saveCategory()">
+          <label>
+            Name *
+            <input formControlName="name" />
+          </label>
+          <label>
+            Sort order
+            <input type="number" formControlName="sortOrder" min="0" />
+          </label>
+          <div class="form-actions">
+            <button class="btn btn-primary" type="submit" [disabled]="categoryForm.invalid || busy()">Save</button>
+            <button class="btn btn-ghost" type="button" (click)="cancelCategoryEdit()">Cancel</button>
+          </div>
+        </form>
+      } @else {
+        <div class="cat-header">
+          <span class="cat-name">{{ cat.name }}</span>
+          <span class="cat-order">#{{ cat.sortOrder }}</span>
+          <div class="cat-actions">
+            <button class="btn btn-sm" (click)="startEditCategory(cat)">Edit</button>
+            @if (confirming()?.type === 'category' && confirming()?.id === cat.id) {
+              <span class="confirm-group">
+                <button class="btn btn-sm btn-danger" (click)="executeDeleteCategory(cat.id)" [disabled]="busy()">Confirm</button>
+                <button class="btn btn-sm btn-ghost" (click)="cancelConfirm()">Cancel</button>
+              </span>
+            } @else {
+              <button class="btn btn-sm btn-danger" (click)="requestDeleteCategory(cat.id)">Delete</button>
+            }
+          </div>
+        </div>
+
+        <div class="items-section">
+          @for (item of cat.items; track item.id) {
+            <div class="item-row">
+              @if (editingItemId() === item.id) {
+                <form class="inline-form item-form" [formGroup]="itemForm" (ngSubmit)="saveItem()">
+                  <label>
+                    Name *
+                    <input formControlName="name" />
+                  </label>
+                  <label>
+                    Price
+                    <input type="number" step="0.01" min="0" formControlName="price" />
+                  </label>
+                  <label>
+                    Station
+                    <select formControlName="stationId">
+                      @for (s of stations; track s.id) {
+                        <option [value]="s.id">{{ s.name }}</option>
+                      }
+                    </select>
+                  </label>
+                  <label>
+                    Availability
+                    <select formControlName="availability">
+                      <option value="Available">Available</option>
+                      <option value="OutOfStock">Out of Stock</option>
+                      <option value="Hidden">Hidden</option>
+                    </select>
+                  </label>
+                  <div class="form-actions">
+                    <button class="btn btn-primary" type="submit" [disabled]="itemForm.invalid || busy()">Save</button>
+                    <button class="btn btn-ghost" type="button" (click)="cancelItemEdit()">Cancel</button>
+                  </div>
+                </form>
+              } @else {
+                <div class="item-info">
+                  <span class="item-name">{{ item.name }}</span>
+                  <span class="item-price">{{ item.price | currency:'EUR' }}</span>
+                  <span class="item-avail" [class.out]="item.availability !== 'Available'" [class.hidden]="item.availability === 'Hidden'">
+                    <select class="avail-select" [value]="item.availability"
+                      (change)="onChangeAvailability($event.target, item, cat.id)" [disabled]="busy()">
+                      <option value="Available">Available</option>
+                      <option value="OutOfStock">Out of Stock</option>
+                      <option value="Hidden">Hidden</option>
+                    </select>
+                  </span>
+                  <div class="item-actions">
+                    <button class="btn btn-sm" (click)="startEditItem(item, cat.id)">Edit</button>
+                    @if (confirming()?.type === 'item' && confirming()?.id === item.id) {
+                      <span class="confirm-group">
+                        <button class="btn btn-sm btn-danger" (click)="executeDeleteItem(item.id)" [disabled]="busy()">Confirm</button>
+                        <button class="btn btn-sm btn-ghost" (click)="cancelConfirm()">Cancel</button>
+                      </span>
+                    } @else {
+                      <button class="btn btn-sm btn-danger" (click)="requestDeleteItem(item.id)">Delete</button>
+                    }
+                  </div>
+                </div>
+
+                <div class="item-groups">
+                  <span class="groups-label">Modifier groups:</span>
+                  @for (g of item.modifierGroups; track g.id) {
+                    <span class="group-tag">
+                      {{ g.name }}
+                      @if (confirmAttach()?.itemId === item.id && confirmAttach()?.groupId === g.id) {
+                        <button class="tag-confirm" (click)="executeDetachGroup(item.id, g.id)" [disabled]="busy()">Confirm detach</button>
+                        <button class="tag-cancel" (click)="cancelDetachGroup()">✕</button>
+                      } @else {
+                        <button class="tag-detach" (click)="requestDetachGroup(item.id, g.id)" aria-label="Detach {{ g.name }}">&times;</button>
+                      }
+                    </span>
+                  }
+                  @if (attachingItemId() === item.id) {
+                    <span class="attach-form">
+                      <select (change)="onAttachGroupSelect($event.target)">
+                        <option value="">Select group…</option>
+                        @for (g of availableGroupsForItem(item); track g.id) {
+                          <option [value]="g.id">{{ g.name }}</option>
+                        }
+                      </select>
+                      <button class="btn btn-sm btn-primary" (click)="attachGroup(item.id)" [disabled]="!attachGroupSelect() || busy()">Attach</button>
+                      <button class="btn btn-sm btn-ghost" (click)="cancelAttachGroup()">Cancel</button>
+                    </span>
+                  } @else {
+                    @if (availableGroupsForItem(item).length > 0) {
+                      <button class="btn btn-sm btn-ghost" (click)="startAttachGroup(item.id)">+ Attach group</button>
+                    }
+                  }
+                </div>
+              }
+            </div>
+          }
+          @if (creatingItemCategoryId() === cat.id) {
+            <form class="inline-form item-form" [formGroup]="itemForm" (ngSubmit)="saveItem()">
+              <label>
+                Name *
+                <input formControlName="name" />
+              </label>
+              <label>
+                Price
+                <input type="number" step="0.01" min="0" formControlName="price" />
+              </label>
+              <label>
+                Station
+                <select formControlName="stationId">
+                  @for (s of stations; track s.id) {
+                    <option [value]="s.id">{{ s.name }}</option>
+                  }
+                </select>
+              </label>
+              <label>
+                Availability
+                <select formControlName="availability">
+                  <option value="Available">Available</option>
+                  <option value="OutOfStock">Out of Stock</option>
+                  <option value="Hidden">Hidden</option>
+                </select>
+              </label>
+              <div class="form-actions">
+                <button class="btn btn-primary" type="submit" [disabled]="itemForm.invalid || busy()">Save</button>
+                <button class="btn btn-ghost" type="button" (click)="cancelItemEdit()">Cancel</button>
+              </div>
+            </form>
+          }
+          <button class="btn btn-sm btn-ghost add-item-btn" (click)="startCreateItem(cat.id)">+ Add item</button>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+@if (categories().length === 0 && !creatingCategory()) {
+  <p class="empty">No categories yet. Create one to get started.</p>
+}

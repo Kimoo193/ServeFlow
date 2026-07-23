@@ -1,0 +1,122 @@
+:host { display: block; height: 100%; }
+
+.shell {
+  display: flex;
+  height: 100dvh;
+}
+
+.sidebar {
+  inline-size: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 20px 12px;
+  background: #fff;
+  border-inline-end: 1px solid rgba(15, 95, 82, 0.1);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-block-end: 20px;
+  padding-inline: 8px;
+}
+
+.mark {
+  inline-size: 12px;
+  block-size: 20px;
+  border-radius: 3px;
+  background: linear-gradient(var(--sf-mint), var(--sf-spruce));
+}
+
+.word {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-size: 18px;
+  color: var(--sf-ink);
+}
+
+.role {
+  margin-inline-start: auto;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--sf-served);
+}
+
+.nav-link {
+  display: block;
+  padding: 10px 12px;
+  border-radius: var(--sf-radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--sf-served);
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.nav-link:hover {
+  background: rgba(15, 95, 82, 0.06);
+  color: var(--sf-spruce);
+}
+
+.nav-link.active {
+  background: rgba(15, 95, 82, 0.1);
+  color: var(--sf-spruce-deep);
+  font-weight: 700;
+}
+
+.disconnect {
+  margin-block-start: auto;
+  padding: 10px 12px;
+  border: none;
+  border-radius: var(--sf-radius-sm);
+  font: inherit;
+  font-size: 13px;
+  color: var(--sf-voided);
+  background: transparent;
+  cursor: pointer;
+  text-align: start;
+}
+
+.disconnect:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+@media (max-width: 640px) {
+  .sidebar {
+    inline-size: 56px;
+    padding: 12px 8px;
+  }
+  .word, .role, .nav-link {
+    display: none;
+  }
+  .nav-link.active {
+    display: block;
+    font-size: 0;
+  }
+  .nav-link.active::before {
+    content: 'M';
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .brand {
+    justify-content: center;
+  }
+  .disconnect {
+    font-size: 0;
+    text-align: center;
+  }
+  .disconnect::before {
+    content: '✕';
+    font-size: 16px;
+  }
+}
