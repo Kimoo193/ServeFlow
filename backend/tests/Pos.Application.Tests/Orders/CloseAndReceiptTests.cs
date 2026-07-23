@@ -147,6 +147,109 @@ public sealed class CloseAndReceiptTests(PostgresRlsFixture fixture)
     }
 
     [Fact]
+    public async Task Close_blocked_when_line_is_draft()
+    {
+        var (tenantId, branchId, sectionId, tableId, waiterId, stationId, menuItem1Id, menuItem2Id) = await SeedFullAsync(
+            null, null);
+
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var token = await GetDevTokenAsync(client, tenantId, branchId, waiterId);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var orderResponse = await client.PostAsync($"/tables/{tableId}/orders", null);
+        orderResponse.EnsureSuccessStatusCode();
+        var orderBody = await orderResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var orderId = orderBody.GetProperty("orderId").GetGuid();
+        var rowVersion = orderBody.GetProperty("rowVersion").GetInt32();
+
+        // Add a draft line but do NOT fire it
+        var lineBody = new { menuItemId = menuItem1Id, quantity = 2, modifierIds = Array.Empty<Guid>(), rowVersion };
+        var lineResponse = await client.PostAsJsonAsync($"/orders/{orderId}/lines", lineBody);
+        lineResponse.EnsureSuccessStatusCode();
+        var lineResp = await lineResponse.Content.ReadFromJsonAsync<JsonElement>();
+        rowVersion = lineResp.GetProperty("rowVersion").GetInt32();
+
+        // Attempt close while line is Draft — must fail with 409
+        var closeResponse = await client.PostAsJsonAsync($"/orders/{orderId}/close", new { rowVersion });
+        Assert.Equal(409, (int)closeResponse.StatusCode);
+        var errorBody = await closeResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Order has unfinished lines", errorBody.GetProperty("title").GetString());
+
+        // Delete (void) the draft line and close — draft was never billed
+        var deleteResponse = await client.DeleteAsync($"/orders/{orderId}/lines/{lineResp.GetProperty("lineId").GetGuid()}?rowVersion={rowVersion}");
+        deleteResponse.EnsureSuccessStatusCode();
+
+        var getResponse = await client.GetAsync($"/orders/{orderId}");
+        getResponse.EnsureSuccessStatusCode();
+        var getBody = await getResponse.Content.ReadFromJsonAsync<JsonElement>();
+        rowVersion = getBody.GetProperty("rowVersion").GetInt32();
+
+        var closeOkResponse = await client.PostAsJsonAsync($"/orders/{orderId}/close", new { rowVersion });
+        closeOkResponse.EnsureSuccessStatusCode();
+        var closeBody = await closeOkResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        // Bill is 0 — the Draft line was never billed
+        Assert.Equal(0m, closeBody.GetProperty("subtotal").GetDecimal());
+        Assert.Equal(0m, closeBody.GetProperty("total").GetDecimal());
+    }
+
+    [Fact]
+    public async Task Close_blocked_when_line_is_ready()
+    {
+        var (tenantId, branchId, sectionId, tableId, waiterId, stationId, menuItem1Id, menuItem2Id) = await SeedFullAsync(
+            null, null);
+
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var token = await GetDevTokenAsync(client, tenantId, branchId, waiterId);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var orderResponse = await client.PostAsync($"/tables/{tableId}/orders", null);
+        orderResponse.EnsureSuccessStatusCode();
+        var orderBody = await orderResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var orderId = orderBody.GetProperty("orderId").GetGuid();
+        var rowVersion = orderBody.GetProperty("rowVersion").GetInt32();
+
+        var lineBody = new { menuItemId = menuItem1Id, quantity = 1, modifierIds = Array.Empty<Guid>(), rowVersion };
+        var lineResponse = await client.PostAsJsonAsync($"/orders/{orderId}/lines", lineBody);
+        lineResponse.EnsureSuccessStatusCode();
+        var lineResp = await lineResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var lineId = lineResp.GetProperty("lineId").GetGuid();
+        rowVersion = lineResp.GetProperty("rowVersion").GetInt32();
+
+        // Fire -> start-preparing -> ready (line is now Ready)
+        var fireResponse = await client.PostAsJsonAsync($"/orders/{orderId}/fire", new { rowVersion });
+        fireResponse.EnsureSuccessStatusCode();
+        var fireBody = await fireResponse.Content.ReadFromJsonAsync<JsonElement>();
+        rowVersion = fireBody.GetProperty("rowVersion").GetInt32();
+
+        var prepResponse = await client.PostAsync($"/kds/lines/{lineId}/start-preparing", null);
+        prepResponse.EnsureSuccessStatusCode();
+
+        var readyResponse = await client.PostAsync($"/kds/lines/{lineId}/ready", null);
+        readyResponse.EnsureSuccessStatusCode();
+
+        // Attempt close while line is Ready — must fail with 409
+        var closeResponse = await client.PostAsJsonAsync($"/orders/{orderId}/close", new { rowVersion });
+        Assert.Equal(409, (int)closeResponse.StatusCode);
+        var errorBody = await closeResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Order has unfinished lines", errorBody.GetProperty("title").GetString());
+
+        // Serve the line, then close succeeds
+        var serveResponse = await client.PostAsync($"/orders/{orderId}/lines/{lineId}/serve", null);
+        serveResponse.EnsureSuccessStatusCode();
+
+        var getResponse = await client.GetAsync($"/orders/{orderId}");
+        getResponse.EnsureSuccessStatusCode();
+        var getBody = await getResponse.Content.ReadFromJsonAsync<JsonElement>();
+        rowVersion = getBody.GetProperty("rowVersion").GetInt32();
+
+        var closeOkResponse = await client.PostAsJsonAsync($"/orders/{orderId}/close", new { rowVersion });
+        closeOkResponse.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
     public async Task Receipt_returns_409_before_close_and_content_after()
     {
         var (tenantId, branchId, sectionId, tableId, waiterId, stationId, menuItem1Id, menuItem2Id) = await SeedFullAsync(
@@ -341,6 +444,50 @@ public sealed class CloseAndReceiptTests(PostgresRlsFixture fixture)
         Assert.Equal(400, (int)printResponse.StatusCode);
         var errorBody = await printResponse.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Printer not configured for this branch", errorBody.GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task Void_on_completed_order_returns_409()
+    {
+        var (tenantId, branchId, sectionId, tableId, waiterId, stationId, menuItem1Id, menuItem2Id) = await SeedFullAsync(
+            null, null);
+
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var token = await GetDevTokenAsync(client, tenantId, branchId, waiterId);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var orderResponse = await client.PostAsync($"/tables/{tableId}/orders", null);
+        orderResponse.EnsureSuccessStatusCode();
+        var orderBody = await orderResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var orderId = orderBody.GetProperty("orderId").GetGuid();
+        var rowVersion = orderBody.GetProperty("rowVersion").GetInt32();
+
+        var lineBody = new { menuItemId = menuItem1Id, quantity = 1, modifierIds = Array.Empty<Guid>(), rowVersion };
+        var lineResponse = await client.PostAsJsonAsync($"/orders/{orderId}/lines", lineBody);
+        lineResponse.EnsureSuccessStatusCode();
+        var lineResp = await lineResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var lineId = lineResp.GetProperty("lineId").GetGuid();
+        rowVersion = lineResp.GetProperty("rowVersion").GetInt32();
+
+        var fireResponse = await client.PostAsJsonAsync($"/orders/{orderId}/fire", new { rowVersion });
+        fireResponse.EnsureSuccessStatusCode();
+        var fireBody = await fireResponse.Content.ReadFromJsonAsync<JsonElement>();
+        rowVersion = fireBody.GetProperty("rowVersion").GetInt32();
+
+        await ServeLineAsync(client, orderId, lineId);
+
+        // Close the order
+        var closeResponse = await client.PostAsJsonAsync($"/orders/{orderId}/close", new { rowVersion });
+        closeResponse.EnsureSuccessStatusCode();
+        var closeBody = await closeResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var closeRowVersion = closeBody.GetProperty("rowVersion").GetInt32();
+
+        // Attempt to void the served line after close — must return 409
+        var voidResponse = await client.PostAsJsonAsync($"/orders/{orderId}/lines/{lineId}/void", new { reason = "Test void after close", rowVersion = closeRowVersion });
+        Assert.Equal(409, (int)voidResponse.StatusCode);
+        var errorBody = await voidResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Order is already completed", errorBody.GetProperty("title").GetString());
     }
 
     private WebApplicationFactory<Program> CreateFactory()

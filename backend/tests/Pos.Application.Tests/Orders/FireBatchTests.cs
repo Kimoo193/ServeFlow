@@ -121,6 +121,119 @@ public sealed class FireBatchTests(PostgresRlsFixture fixture)
     }
 
     [Fact]
+    public async Task Fire_broadcast_carries_line_modifiers()
+    {
+        var tenantId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var sectionId = Guid.NewGuid();
+        var tableId = Guid.NewGuid();
+        var waiterId = Guid.NewGuid();
+        var station1Id = Guid.NewGuid();
+        var station2Id = Guid.NewGuid();
+        var menuItem1Id = Guid.NewGuid();
+        var menuItem2Id = Guid.NewGuid();
+        var modifierGroupId = Guid.NewGuid();
+        var modifierId = Guid.NewGuid();
+
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var token = await GetDevTokenAsync(client, tenantId, branchId, waiterId);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        await SeedStationsAndItemsAsync(tenantId, branchId, waiterId, sectionId, tableId, station1Id, station2Id, menuItem1Id, menuItem2Id);
+
+        // Add modifier group + modifier + link to menuItem1
+        await using (var conn = new NpgsqlConnection(fixture.AppConnectionString))
+        {
+            await conn.OpenAsync();
+            await using var tx = await conn.BeginTransactionAsync();
+            await RlsTestSql.SetTenantAsync(conn, tenantId);
+
+            await using (var cmd = new NpgsqlCommand(
+                "INSERT INTO modifier_groups (id, tenant_id, name, min_select, max_select, required) VALUES (@id, @tenantId, @name, 0, 1, false)", conn))
+            {
+                cmd.Parameters.AddWithValue("id", modifierGroupId);
+                cmd.Parameters.AddWithValue("tenantId", tenantId);
+                cmd.Parameters.AddWithValue("name", "Extras");
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            await using (var cmd = new NpgsqlCommand(
+                "INSERT INTO modifiers (id, tenant_id, group_id, name, price_delta) VALUES (@id, @tenantId, @groupId, @name, @priceDelta)", conn))
+            {
+                cmd.Parameters.AddWithValue("id", modifierId);
+                cmd.Parameters.AddWithValue("tenantId", tenantId);
+                cmd.Parameters.AddWithValue("groupId", modifierGroupId);
+                cmd.Parameters.AddWithValue("name", "Extra cheese");
+                cmd.Parameters.AddWithValue("priceDelta", 2.00m);
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            await using (var cmd = new NpgsqlCommand(
+                "INSERT INTO item_modifier_groups (id, tenant_id, item_id, group_id) VALUES (@id, @tenantId, @itemId, @groupId)", conn))
+            {
+                cmd.Parameters.AddWithValue("id", Guid.NewGuid());
+                cmd.Parameters.AddWithValue("tenantId", tenantId);
+                cmd.Parameters.AddWithValue("itemId", menuItem1Id);
+                cmd.Parameters.AddWithValue("groupId", modifierGroupId);
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            await tx.CommitAsync();
+        }
+
+        var orderResponse = await client.PostAsync($"/tables/{tableId}/orders", null);
+        orderResponse.EnsureSuccessStatusCode();
+        var orderBody = await orderResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var orderId = orderBody.GetProperty("orderId").GetGuid();
+        var rowVersion = orderBody.GetProperty("rowVersion").GetInt32();
+
+        // Add a line for station 1 WITH the modifier
+        var lineBody = new { menuItemId = menuItem1Id, quantity = 1, modifierIds = new[] { modifierId }, rowVersion };
+        var lineResponse = await client.PostAsJsonAsync($"/orders/{orderId}/lines", lineBody);
+        lineResponse.EnsureSuccessStatusCode();
+        var lineResp = await lineResponse.Content.ReadFromJsonAsync<JsonElement>();
+        rowVersion = lineResp.GetProperty("rowVersion").GetInt32();
+
+        // Set up SignalR connection to capture OrderFired
+        var server = factory.Server;
+        var firedReceived = new TaskCompletionSource<JsonElement>();
+
+        var connection = new HubConnectionBuilder()
+            .WithUrl("http://localhost/posHub", options =>
+            {
+                options.HttpMessageHandlerFactory = _ => server.CreateHandler();
+                options.AccessTokenProvider = () => Task.FromResult(token)!;
+            })
+            .Build();
+
+        connection.On<JsonElement>("OrderFired", data =>
+        {
+            firedReceived.TrySetResult(data);
+        });
+
+        await connection.StartAsync();
+        await connection.SendAsync("JoinStationGroup", station1Id);
+        await Task.Delay(200);
+
+        // Fire
+        var fireResponse = await client.PostAsJsonAsync($"/orders/{orderId}/fire", new { rowVersion });
+        fireResponse.EnsureSuccessStatusCode();
+
+        var firedResult = await firedReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var lines = firedResult.GetProperty("lines").EnumerateArray().ToList();
+        Assert.Single(lines);
+
+        var modifiers = lines[0].GetProperty("modifiers").EnumerateArray().ToList();
+        Assert.Single(modifiers);
+        Assert.Equal("Extra cheese", modifiers[0].GetProperty("name").GetString());
+        Assert.Equal(2.00m, modifiers[0].GetProperty("priceDelta").GetDecimal());
+
+        await connection.StopAsync();
+    }
+
+    [Fact]
     public async Task Second_fire_creates_new_batch_does_not_touch_first()
     {
         var tenantId = Guid.NewGuid();

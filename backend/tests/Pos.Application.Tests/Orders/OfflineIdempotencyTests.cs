@@ -118,6 +118,63 @@ public sealed class OfflineIdempotencyTests(PostgresRlsFixture fixture)
     }
 
     [Fact]
+    public async Task Dine_in_replay_checks_table_and_returns_409_on_conflict()
+    {
+        var tenantId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var sectionId = Guid.NewGuid();
+        var tableAId = Guid.NewGuid();
+        var tableBId = Guid.NewGuid();
+        var waiterId = Guid.NewGuid();
+        var stationId = Guid.NewGuid();
+        var menuItemId = Guid.NewGuid();
+        var clientOrderId = Guid.NewGuid();
+
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var token = await GetDevTokenAsync(client, tenantId, branchId, waiterId);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        await SeedAsync(tenantId, branchId, waiterId, sectionId, tableAId, stationId, menuItemId);
+
+        // Seed a second table
+        await using (var conn = new NpgsqlConnection(fixture.AppConnectionString))
+        {
+            await conn.OpenAsync();
+            await using var tx = await conn.BeginTransactionAsync();
+            await RlsTestSql.SetTenantAsync(conn, tenantId);
+            await using var cmd = new NpgsqlCommand(
+                "INSERT INTO dining_tables (id, tenant_id, section_id, label, status) VALUES (@id, @tenantId, @sectionId, @label, 'Available')", conn);
+            cmd.Parameters.AddWithValue("id", tableBId);
+            cmd.Parameters.AddWithValue("tenantId", tenantId);
+            cmd.Parameters.AddWithValue("sectionId", sectionId);
+            cmd.Parameters.AddWithValue("label", "14");
+            await cmd.ExecuteNonQueryAsync();
+            await tx.CommitAsync();
+        }
+
+        // First call on table A with client-chosen OrderId
+        var body = new { orderId = clientOrderId };
+        var responseA = await client.PostAsJsonAsync($"/tables/{tableAId}/orders", body);
+        responseA.EnsureSuccessStatusCode();
+        var resultA = await responseA.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(clientOrderId, resultA.GetProperty("orderId").GetGuid());
+
+        // Same OrderId on table B — must return 409 (conflict, not replay)
+        var responseB = await client.PostAsJsonAsync($"/tables/{tableBId}/orders", body);
+        Assert.Equal(409, (int)responseB.StatusCode);
+        var errorBody = await responseB.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Order id conflict", errorBody.GetProperty("title").GetString());
+
+        // Same OrderId on table A — still replays (idempotent)
+        var responseA2 = await client.PostAsJsonAsync($"/tables/{tableAId}/orders", body);
+        responseA2.EnsureSuccessStatusCode();
+        var resultA2 = await responseA2.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(clientOrderId, resultA2.GetProperty("orderId").GetGuid());
+        Assert.Equal(resultA.GetProperty("rowVersion").GetInt32(), resultA2.GetProperty("rowVersion").GetInt32());
+    }
+
+    [Fact]
     public async Task Stale_rowVersion_with_existing_lineId_succeeds_not_409()
     {
         var tenantId = Guid.NewGuid();

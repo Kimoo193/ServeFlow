@@ -243,6 +243,67 @@ public sealed class CashierTests(PostgresRlsFixture fixture)
     }
 
     [Fact]
+    public async Task Bill_preview_and_open_orders_show_ready_line_as_unfinished()
+    {
+        var (tenantId, branchId, sectionId, tableId, waiterId, stationId, menuItem1Id, menuItem2Id) = await SeedFullAsync(
+            null, null);
+
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var token = await GetDevTokenAsync(client, tenantId, branchId, waiterId);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var orderResponse = await client.PostAsync($"/tables/{tableId}/orders", null);
+        orderResponse.EnsureSuccessStatusCode();
+        var orderBody = await orderResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var orderId = orderBody.GetProperty("orderId").GetGuid();
+        var rowVersion = orderBody.GetProperty("rowVersion").GetInt32();
+
+        var lineBody = new { menuItemId = menuItem1Id, quantity = 1, modifierIds = Array.Empty<Guid>(), rowVersion };
+        var lineResponse = await client.PostAsJsonAsync($"/orders/{orderId}/lines", lineBody);
+        lineResponse.EnsureSuccessStatusCode();
+        var lineResp = await lineResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var lineId = lineResp.GetProperty("lineId").GetGuid();
+        rowVersion = lineResp.GetProperty("rowVersion").GetInt32();
+
+        // Fire -> start-preparing -> ready (line is Ready)
+        var fireResponse = await client.PostAsJsonAsync($"/orders/{orderId}/fire", new { rowVersion });
+        fireResponse.EnsureSuccessStatusCode();
+        var fireBody = await fireResponse.Content.ReadFromJsonAsync<JsonElement>();
+        rowVersion = fireBody.GetProperty("rowVersion").GetInt32();
+
+        var prepResponse = await client.PostAsync($"/kds/lines/{lineId}/start-preparing", null);
+        prepResponse.EnsureSuccessStatusCode();
+
+        var readyResponse = await client.PostAsync($"/kds/lines/{lineId}/ready", null);
+        readyResponse.EnsureSuccessStatusCode();
+
+        // Bill-preview with Ready line — canClose=false, unfinishedCount=1
+        var previewResponse = await client.GetAsync($"/orders/{orderId}/bill-preview");
+        previewResponse.EnsureSuccessStatusCode();
+        var previewBody = await previewResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(previewBody.GetProperty("canClose").GetBoolean());
+        Assert.Equal(1, previewBody.GetProperty("unfinishedCount").GetInt32());
+
+        // Open orders — same order has unfinishedCount=1
+        var openResponse = await client.GetAsync("/orders/open");
+        openResponse.EnsureSuccessStatusCode();
+        var openBody = await openResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var openOrder = openBody.EnumerateArray().Single(o => o.GetProperty("id").GetGuid() == orderId);
+        Assert.Equal(1, openOrder.GetProperty("unfinishedCount").GetInt32());
+
+        // Serve the line — now canClose=true, unfinishedCount=0
+        var serveResponse = await client.PostAsync($"/orders/{orderId}/lines/{lineId}/serve", null);
+        serveResponse.EnsureSuccessStatusCode();
+
+        var preview2Response = await client.GetAsync($"/orders/{orderId}/bill-preview");
+        preview2Response.EnsureSuccessStatusCode();
+        var preview2Body = await preview2Response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(preview2Body.GetProperty("canClose").GetBoolean());
+        Assert.Equal(0, preview2Body.GetProperty("unfinishedCount").GetInt32());
+    }
+
+    [Fact]
     public async Task Bill_preview_totals_match_close_totals()
     {
         var (tenantId, branchId, sectionId, tableId, waiterId, stationId, menuItem1Id, menuItem2Id) = await SeedFullAsync(

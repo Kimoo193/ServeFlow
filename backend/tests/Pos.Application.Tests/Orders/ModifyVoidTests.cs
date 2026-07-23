@@ -315,6 +315,68 @@ public sealed class ModifyVoidTests(PostgresRlsFixture fixture)
     }
 
     [Fact]
+    public async Task Increase_quantity_bills_added_units_at_original_line_price_not_current_menu_price()
+    {
+        var tenantId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var sectionId = Guid.NewGuid();
+        var tableId = Guid.NewGuid();
+        var waiterId = Guid.NewGuid();
+        var stationId = Guid.NewGuid();
+        var menuItemId = Guid.NewGuid();
+
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var token = await GetDevTokenAsync(client, tenantId, branchId, waiterId, "Waiter");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        await SeedAsync(tenantId, branchId, waiterId, sectionId, tableId, stationId, menuItemId);
+
+        var orderResponse = await client.PostAsync($"/tables/{tableId}/orders", null);
+        orderResponse.EnsureSuccessStatusCode();
+        var orderBody = await orderResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var orderId = orderBody.GetProperty("orderId").GetGuid();
+        var rowVersion = orderBody.GetProperty("rowVersion").GetInt32();
+
+        // Fire a line at the original menu price (MenuItemPrice = 15.50).
+        var lineBody = new { menuItemId, quantity = 2, modifierIds = Array.Empty<Guid>(), rowVersion };
+        var lineResponse = await client.PostAsJsonAsync($"/orders/{orderId}/lines", lineBody);
+        lineResponse.EnsureSuccessStatusCode();
+        var lineResp = await lineResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var lineId = lineResp.GetProperty("lineId").GetGuid();
+        rowVersion = lineResp.GetProperty("rowVersion").GetInt32();
+
+        var fireResponse = await client.PostAsJsonAsync($"/orders/{orderId}/fire", new { rowVersion });
+        fireResponse.EnsureSuccessStatusCode();
+
+        // The menu price is raised AFTER the line was fired.
+        const decimal raisedPrice = 20.00m;
+        await using (var connection = new NpgsqlConnection(fixture.AppConnectionString))
+        {
+            await connection.OpenAsync();
+            await using var tx = await connection.BeginTransactionAsync();
+            await RlsTestSql.SetTenantAsync(connection, tenantId);
+            await using var cmd = new NpgsqlCommand("UPDATE menu_items SET price = @price WHERE id = @id", connection);
+            cmd.Parameters.AddWithValue("price", raisedPrice);
+            cmd.Parameters.AddWithValue("id", menuItemId);
+            await cmd.ExecuteNonQueryAsync();
+            await tx.CommitAsync();
+        }
+
+        var getResponse = await client.GetAsync($"/orders/{orderId}");
+        getResponse.EnsureSuccessStatusCode();
+        var getBody = await getResponse.Content.ReadFromJsonAsync<JsonElement>();
+        rowVersion = getBody.GetProperty("rowVersion").GetInt32();
+
+        // Increasing quantity must bill the added units at the ORIGINAL snapshot price, not 20.00.
+        var incResponse = await client.PostAsJsonAsync($"/orders/{orderId}/lines/{lineId}/increase-quantity", new { quantityDelta = 3, rowVersion });
+        incResponse.EnsureSuccessStatusCode();
+        var incBody = await incResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(MenuItemPrice, incBody.GetProperty("unitPrice").GetDecimal());
+        Assert.NotEqual(raisedPrice, incBody.GetProperty("unitPrice").GetDecimal());
+    }
+
+    [Fact]
     public async Task Increase_quantity_on_preparing_line_as_waiter_returns_403()
     {
         var tenantId = Guid.NewGuid();

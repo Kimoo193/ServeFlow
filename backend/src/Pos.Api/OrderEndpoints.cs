@@ -27,7 +27,9 @@ internal static class OrderEndpoints
                 var existing = await db.Orders.FindAsync([body.OrderId.Value], ct);
                 if (existing is not null)
                 {
-                    return Results.Created($"/orders/{existing.Id}", new { orderId = existing.Id, status = existing.Status.ToString(), rowVersion = existing.RowVersion });
+                    if (existing.TableId == tableId && existing.OrderType == OrderType.DineIn)
+                        return Results.Created($"/orders/{existing.Id}", new { orderId = existing.Id, status = existing.Status.ToString(), rowVersion = existing.RowVersion });
+                    return Results.Problem(statusCode: 409, title: "Order id conflict", detail: "That order id belongs to a different order");
                 }
             }
 
@@ -293,7 +295,7 @@ internal static class OrderEndpoints
                 {
                     OrderId = g.Key,
                     LineCount = g.Count(l => l.Status != OrderLineStatus.Voided),
-                    UnfinishedCount = g.Count(l => l.Status == OrderLineStatus.Fired || l.Status == OrderLineStatus.Preparing),
+                    UnfinishedCount = g.Count(l => l.Status != OrderLineStatus.Served && l.Status != OrderLineStatus.Voided),
                 })
                 .ToListAsync(ct);
 
@@ -419,6 +421,12 @@ internal static class OrderEndpoints
             order.RowVersion++;
             await db.SaveChangesAsync(ct);
 
+            // Load modifiers for the fired lines so the broadcast carries them
+            var firedLineIds = draftLines.Select(l => l.Id).ToHashSet();
+            var firedModifiers = firedLineIds.Count > 0
+                ? await db.OrderLineModifiers.Where(m => firedLineIds.Contains(m.OrderLineId)).ToListAsync(ct)
+                : [];
+
             // Broadcast after successful save — fire is authoritative, broadcast is best-effort.
             var groupsByStation = draftLines
                 .GroupBy(l => l.StationId)
@@ -437,7 +445,9 @@ internal static class OrderEndpoints
                         sequence = l.Sequence,
                         quantity = l.Quantity,
                         unitPrice = l.UnitPrice,
-                        modifiers = Array.Empty<object>(), // not loaded — callers can fetch if needed
+                        modifiers = firedModifiers
+                            .Where(m => m.OrderLineId == l.Id)
+                            .Select(m => new { name = m.Name, priceDelta = m.PriceDelta }),
                     }),
                 }, ct);
             }
@@ -615,6 +625,9 @@ internal static class OrderEndpoints
             var order = await db.Orders.FindAsync([orderId], ct);
             if (order is null) return Results.NotFound();
 
+            if (order.Status == OrderStatus.Completed)
+                return Results.Problem(statusCode: 409, title: "Order is already completed", detail: "A completed order's lines cannot be voided");
+
             var line = await db.OrderLines.FirstOrDefaultAsync(ol => ol.Id == lineId && ol.OrderId == orderId, ct);
             if (line is null) return Results.NotFound();
 
@@ -736,7 +749,10 @@ internal static class OrderEndpoints
                 StationId = line.StationId,
                 Sequence = maxSequence + 1,
                 Quantity = body.QuantityDelta,
-                UnitPrice = menuItem.Price,
+                // Increasing quantity is "more of the same line" — bill the added units at the
+                // original line's snapshotted price, not today's (possibly changed) menu price.
+                // The menuItem is still loaded above solely to enforce the availability guard.
+                UnitPrice = line.UnitPrice,
                 Status = OrderLineStatus.Fired,
                 FireBatchId = newFireBatchId,
             };
@@ -779,7 +795,7 @@ internal static class OrderEndpoints
                         sequence = newLine.Sequence,
                         quantity = newLine.Quantity,
                         unitPrice = newLine.UnitPrice,
-                        modifiers = Array.Empty<object>(),
+                        modifiers = Array.Empty<object>(), // new line created fresh with no modifiers
                     },
                 },
             }, ct);
@@ -807,12 +823,12 @@ internal static class OrderEndpoints
             if (order.RowVersion != body.RowVersion)
                 return Results.Problem(statusCode: 409, title: "Concurrency conflict", detail: "Stale row version");
 
-            // BR-B-05: block close while any line is Fired or Preparing
+            // BR-B-05: block close while any line is not Served or Voided
             var lines = await db.OrderLines
                 .Where(ol => ol.OrderId == orderId)
                 .ToListAsync(ct);
 
-            if (lines.Any(l => l.Status is OrderLineStatus.Fired or OrderLineStatus.Preparing))
+            if (lines.Any(l => l.Status is not (OrderLineStatus.Served or OrderLineStatus.Voided)))
                 return Results.Problem(statusCode: 409, title: "Order has unfinished lines", detail: "All lines must be Served or Voided before closing");
 
             var branchSettings = await db.BranchSettings
@@ -969,7 +985,7 @@ internal static class OrderEndpoints
 
             var bill = ComputeBill(lines, modifiers, branchSettings);
 
-            var unfinishedCount = lines.Count(l => l.Status is OrderLineStatus.Fired or OrderLineStatus.Preparing);
+            var unfinishedCount = lines.Count(l => l.Status is not (OrderLineStatus.Served or OrderLineStatus.Voided));
             var canClose = unfinishedCount == 0;
 
             var linesDto = lines
