@@ -147,6 +147,36 @@ export interface AttachComboItemRequest {
   quantity: number;
 }
 
+/* ── Staff & Permissions ── */
+
+export interface StaffUser {
+  id: string;
+  displayName: string;
+  role: string;
+  isActive: boolean;
+}
+
+export interface CreateUserRequest {
+  displayName: string;
+  role: string;
+}
+
+export interface UpdateUserRequest {
+  displayName: string;
+  role: string;
+  isActive: boolean;
+}
+
+export interface RolePermissionsResponse {
+  roles: string[];
+  permissions: string[];
+  grants: { role: string; permissions: string[] }[];
+}
+
+export interface SetRolePermissionsRequest {
+  permissions: string[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class ManagerApiService {
   private readonly http = inject(HttpClient);
@@ -390,6 +420,40 @@ export class ManagerApiService {
     const params = limit ? `?limit=${limit}` : '';
     return firstValueFrom(
       this.http.get<OrderHistoryRow[]>(`${this.base}/orders/history${params}`),
+    );
+  }
+
+  /* ── Staff ── */
+
+  getUsers(): Promise<StaffUser[]> {
+    return firstValueFrom(
+      this.http.get<StaffUser[]>(`${this.base}/users`),
+    );
+  }
+
+  createUser(body: CreateUserRequest): Promise<StaffUser> {
+    return firstValueFrom(
+      this.http.post<StaffUser>(`${this.base}/users`, body),
+    );
+  }
+
+  updateUser(id: string, body: UpdateUserRequest): Promise<StaffUser> {
+    return firstValueFrom(
+      this.http.put<StaffUser>(`${this.base}/users/${id}`, body),
+    );
+  }
+
+  /* ── Permissions ── */
+
+  getRolePermissions(): Promise<RolePermissionsResponse> {
+    return firstValueFrom(
+      this.http.get<RolePermissionsResponse>(`${this.base}/roles/permissions`),
+    );
+  }
+
+  setRolePermissions(role: string, permissions: string[]): Promise<{ role: string; permissions: string[] }> {
+    return firstValueFrom(
+      this.http.put<{ role: string; permissions: string[] }>(`${this.base}/roles/${role}/permissions`, { permissions } as SetRolePermissionsRequest),
     );
   }
 }

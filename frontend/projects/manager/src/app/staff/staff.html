@@ -1,0 +1,151 @@
+@if (error()) {
+  <div class="error-banner" role="alert">
+    <span>{{ error() }}</span>
+    <button class="close-btn" (click)="closeError()" aria-label="Dismiss error">&times;</button>
+  </div>
+}
+
+<div class="tabs" role="tablist">
+  <button role="tab" [class.active]="activeTab() === 'directory'" (click)="activeTab.set('directory')">Staff directory</button>
+  <button role="tab" [class.active]="activeTab() === 'matrix'" (click)="activeTab.set('matrix')">Permissions</button>
+</div>
+
+@if (activeTab() === 'directory') {
+  <section aria-label="Staff directory">
+    <div class="section-head">
+      <h2>Staff directory</h2>
+      @if (!creatingUser()) {
+        <button class="btn btn-primary btn-sm" (click)="startCreate()">Add staff</button>
+      }
+    </div>
+
+    @if (creatingUser()) {
+      <form class="inline-form" [formGroup]="userForm" (ngSubmit)="saveCreate()">
+        <label>Name
+          <input formControlName="displayName" placeholder="Display name" autocomplete="off" />
+        </label>
+        <label>Role
+          <select formControlName="role">
+            <option value="Owner">Owner</option>
+            <option value="Manager">Manager</option>
+            <option value="Cashier">Cashier</option>
+            <option value="Waiter">Waiter</option>
+            <option value="Kitchen">Kitchen</option>
+          </select>
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary btn-sm" [disabled]="userForm.invalid || busy()">
+            {{ busy() ? 'Saving…' : 'Create' }}
+          </button>
+          <button type="button" class="btn btn-ghost btn-sm" (click)="cancelCreate()">Cancel</button>
+        </div>
+      </form>
+    }
+
+    @if (users().length === 0 && !creatingUser()) {
+      <p class="empty">No staff yet. Add your first team member.</p>
+    }
+
+    <div class="user-list">
+      @for (user of users(); track user.id) {
+        <div class="user-card">
+          @if (editingUserId() === user.id) {
+            <form class="inline-form" [formGroup]="userForm" (ngSubmit)="saveEdit()">
+              <label>Name
+                <input formControlName="displayName" autocomplete="off" />
+              </label>
+              <label>Role
+                <select formControlName="role">
+                  @for (r of ['Owner', 'Manager', 'Cashier', 'Waiter', 'Kitchen']; track r) {
+                    <option [value]="r">{{ r }}</option>
+                  }
+                </select>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" formControlName="isActive" />
+                Active
+              </label>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-sm" [disabled]="userForm.invalid || busy()">
+                  {{ busy() ? 'Saving…' : 'Save' }}
+                </button>
+                <button type="button" class="btn btn-ghost btn-sm" (click)="cancelEdit()">Cancel</button>
+              </div>
+            </form>
+          } @else {
+            <div class="user-info">
+              <span class="user-name">{{ user.displayName }}</span>
+              <span class="user-role">{{ user.role }}</span>
+              <span class="badge" [class.active-badge]="user.isActive" [class.inactive-badge]="!user.isActive">
+                {{ user.isActive ? 'Active' : 'Inactive' }}
+              </span>
+            </div>
+            <div class="user-actions">
+              <button class="btn btn-ghost btn-sm" (click)="startEdit(user)">Edit</button>
+              @if (user.isActive) {
+                @if (confirmingUserId() === user.id) {
+                  <span class="confirm-group">
+                    <button class="btn btn-danger btn-sm" (click)="confirmDeactivate()">Confirm</button>
+                    <button class="btn btn-ghost btn-sm" (click)="cancelDeactivate()">Cancel</button>
+                  </span>
+                } @else {
+                  <button class="btn btn-ghost btn-sm" (click)="requestDeactivate(user.id)">Deactivate</button>
+                }
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </section>
+}
+
+@if (activeTab() === 'matrix') {
+  <section aria-label="Permissions matrix">
+    <div class="section-head">
+      <h2>Permissions</h2>
+      <p class="helper-note">Configure which permissions each role has. Permission enforcement is not yet wired to existing endpoints — this is a configuration surface only.</p>
+    </div>
+
+    <form [formGroup]="matrixForm">
+      @if (rolePermissions(); as rp) {
+        <div class="matrix-scroll">
+          <table class="matrix-table" role="grid">
+            <thead>
+              <tr>
+                <th scope="col">Role</th>
+                @for (perm of rp.permissions; track perm) {
+                  <th scope="col" class="perm-col">{{ perm }}</th>
+                }
+                <th scope="col" class="action-col"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (role of rp.roles; track role) {
+                <tr>
+                  <th scope="row">{{ role }}</th>
+                  @for (perm of rp.permissions; track perm) {
+                    <td class="perm-cell">
+                      <input
+                        type="checkbox"
+                        [formControlName]="matrixKey(role, perm)"
+                        [attr.aria-label]="role + ' ' + perm"
+                      />
+                    </td>
+                  }
+                  <td class="action-cell">
+                    <button type="button" class="btn btn-primary btn-sm" (click)="saveRolePermissions(role)" [disabled]="busy()">
+                      {{ busy() ? 'Saving…' : 'Save' }}
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p class="empty">Loading permissions…</p>
+      }
+    </form>
+  </section>
+}

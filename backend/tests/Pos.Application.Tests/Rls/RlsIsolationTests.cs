@@ -1,4 +1,5 @@
 using Npgsql;
+using Pos.Domain.Entities;
 
 namespace Pos.Application.Tests.Rls;
 
@@ -230,6 +231,44 @@ public sealed class RlsIsolationTests(PostgresRlsFixture fixture)
             insertBranch.Parameters.AddWithValue("name", branchName);
             await insertBranch.ExecuteNonQueryAsync();
         }
+
+        await transaction.CommitAsync();
+    }
+
+    [Fact]
+    public async Task RolePermissions_table_unfiltered_query_returns_only_the_current_tenants_rows()
+    {
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        await SeedFullTenantAsync(tenantA, "A RolePerm", "A Owner RP", currency: "EGP");
+        await SeedFullTenantAsync(tenantB, "B RolePerm", "B Owner RP", currency: "USD");
+
+        await SeedRolePermissionAsync(tenantA, Role.Manager, Permission.CloseOrder);
+        await SeedRolePermissionAsync(tenantB, Role.Manager, Permission.VoidLine);
+
+        await using var connection = await OpenAppConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+        await RlsTestSql.SetTenantAsync(connection, tenantA);
+
+        var permissions = await QuerySingleColumnAsync(connection, "role_permissions", "permission");
+
+        Assert.Equal(["CloseOrder"], permissions);
+    }
+
+    private async Task SeedRolePermissionAsync(Guid tenantId, Role role, Permission permission)
+    {
+        await using var connection = await OpenAppConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+        await RlsTestSql.SetTenantAsync(connection, tenantId);
+
+        await using var cmd = new NpgsqlCommand(
+            "INSERT INTO role_permissions (id, tenant_id, role, permission) VALUES (@id, @tenantId, @role, @permission)",
+            connection);
+        cmd.Parameters.AddWithValue("id", Guid.NewGuid());
+        cmd.Parameters.AddWithValue("tenantId", tenantId);
+        cmd.Parameters.AddWithValue("role", role.ToString());
+        cmd.Parameters.AddWithValue("permission", permission.ToString());
+        await cmd.ExecuteNonQueryAsync();
 
         await transaction.CommitAsync();
     }

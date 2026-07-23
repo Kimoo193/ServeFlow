@@ -12,6 +12,7 @@ public sealed class PosDbContext(DbContextOptions<PosDbContext> options) : DbCon
     public DbSet<BranchSettings> BranchSettings => Set<BranchSettings>();
 
     public DbSet<User> Users => Set<User>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<MenuItem> MenuItems => Set<MenuItem>();
     public DbSet<ModifierGroup> ModifierGroups => Set<ModifierGroup>();

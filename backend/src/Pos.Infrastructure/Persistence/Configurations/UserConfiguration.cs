@@ -26,6 +26,11 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasConversion<string>()
             .HasMaxLength(20);
 
+        builder.Property(u => u.IsActive)
+            .HasColumnName("is_active")
+            .IsRequired()
+            .HasDefaultValue(true);
+
         builder.HasOne<Tenant>()
             .WithMany()
             .HasForeignKey(u => u.TenantId)

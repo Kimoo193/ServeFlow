@@ -180,6 +180,7 @@ app.MapMenuEndpoints();
 app.MapDiningAreaEndpoints();
 app.MapDashboardEndpoints();
 app.MapOrderEndpoints();
+app.MapStaffEndpoints();
 
 app.MapHub<PosHub>("/posHub").RequireAuthorization();
 
