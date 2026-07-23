@@ -72,3 +72,15 @@ export interface OrderLineVoidedEvent {
   lineId: string;
   reason?: string;
 }
+
+/**
+ * Payload of the SignalR "OrderLineStatusChanged" event (station group).
+ * Emitted when a line is bumped Fired→Preparing or Preparing→Ready so a second
+ * KDS terminal on the same station mirrors the change live.
+ */
+export interface OrderLineStatusChangedEvent {
+  orderId: string;
+  lineId: string;
+  fireBatchId: string;
+  status: OrderLineStatus;
+}

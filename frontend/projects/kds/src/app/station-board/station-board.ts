@@ -10,6 +10,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   OrderFiredEvent,
+  OrderLineStatusChangedEvent,
   OrderLineVoidedEvent,
   PosHubService,
   SessionService,
@@ -65,6 +66,9 @@ export class StationBoard implements OnInit, OnDestroy {
     this.hub.orderLineVoided$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((e) => this.onVoided(e));
+    this.hub.orderLineStatusChanged$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((e) => this.onStatusChanged(e));
     this.hub.reconnected$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => void this.reload());
@@ -171,6 +175,19 @@ export class StationBoard implements OnInit, OnDestroy {
       })),
     );
     window.setTimeout(() => this.removeLine(e.lineId), VOID_FLASH_MS);
+  }
+
+  /**
+   * A bump from another terminal on this station (or the echo of our own).
+   * Ready leaves the active board; anything else just updates the line's status.
+   * Both operations are idempotent, so echoing our own optimistic bump is a no-op.
+   */
+  private onStatusChanged(e: OrderLineStatusChangedEvent): void {
+    if (e.status === 'Ready') {
+      this.removeLine(e.lineId);
+    } else {
+      this.setLineStatus(e.lineId, e.status);
+    }
   }
 
   // --- bump actions ------------------------------------------------------

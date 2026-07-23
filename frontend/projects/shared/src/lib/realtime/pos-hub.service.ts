@@ -8,7 +8,11 @@ import {
 } from '@microsoft/signalr';
 import { API_CONFIG } from '../config/api-config';
 import { SessionService } from '../auth/session.service';
-import { OrderFiredEvent, OrderLineVoidedEvent } from '../domain/models';
+import {
+  OrderFiredEvent,
+  OrderLineStatusChangedEvent,
+  OrderLineVoidedEvent,
+} from '../domain/models';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
@@ -30,6 +34,7 @@ export class PosHubService {
 
   readonly orderFired$ = new Subject<OrderFiredEvent>();
   readonly orderLineVoided$ = new Subject<OrderLineVoidedEvent>();
+  readonly orderLineStatusChanged$ = new Subject<OrderLineStatusChangedEvent>();
   readonly reconnected$ = new Subject<void>();
 
   readonly status = signal<ConnectionStatus>('disconnected');
@@ -50,6 +55,9 @@ export class PosHubService {
       this.connection.on('OrderFired', (e: OrderFiredEvent) => this.orderFired$.next(e));
       this.connection.on('OrderLineVoided', (e: OrderLineVoidedEvent) =>
         this.orderLineVoided$.next(e),
+      );
+      this.connection.on('OrderLineStatusChanged', (e: OrderLineStatusChangedEvent) =>
+        this.orderLineStatusChanged$.next(e),
       );
 
       this.connection.onreconnecting(() => this.status.set('reconnecting'));

@@ -232,6 +232,84 @@ public sealed class LineStatusTests(PostgresRlsFixture fixture)
         await connection.StopAsync();
     }
 
+    [Fact]
+    public async Task Station_terminals_receive_line_status_changed_on_bump()
+    {
+        var tenantId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var sectionId = Guid.NewGuid();
+        var tableId = Guid.NewGuid();
+        var waiterId = Guid.NewGuid();
+        var stationId = Guid.NewGuid();
+        var menuItemId = Guid.NewGuid();
+
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var token = await GetDevTokenAsync(client, tenantId, branchId, waiterId);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        await SeedAsync(tenantId, branchId, waiterId, sectionId, tableId, stationId, menuItemId);
+
+        var orderResponse = await client.PostAsync($"/tables/{tableId}/orders", null);
+        orderResponse.EnsureSuccessStatusCode();
+        var orderBody = await orderResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var orderId = orderBody.GetProperty("orderId").GetGuid();
+        var rowVersion = orderBody.GetProperty("rowVersion").GetInt32();
+
+        var lineBody = new { menuItemId, quantity = 1, modifierIds = Array.Empty<Guid>(), rowVersion };
+        var lineResponse = await client.PostAsJsonAsync($"/orders/{orderId}/lines", lineBody);
+        lineResponse.EnsureSuccessStatusCode();
+        var lineResp = await lineResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var lineId = lineResp.GetProperty("lineId").GetGuid();
+        rowVersion = lineResp.GetProperty("rowVersion").GetInt32();
+
+        var fireResponse = await client.PostAsJsonAsync($"/orders/{orderId}/fire", new { rowVersion });
+        fireResponse.EnsureSuccessStatusCode();
+
+        var server = factory.Server;
+
+        // A second KDS terminal on the same station, listening on the station group.
+        var prepared = new TaskCompletionSource<JsonElement>();
+        var ready = new TaskCompletionSource<JsonElement>();
+
+        var connection = new HubConnectionBuilder()
+            .WithUrl("http://localhost/posHub", options =>
+            {
+                options.HttpMessageHandlerFactory = _ => server.CreateHandler();
+                options.AccessTokenProvider = () => Task.FromResult(token)!;
+            })
+            .Build();
+
+        connection.On<JsonElement>("OrderLineStatusChanged", data =>
+        {
+            if (data.GetProperty("status").GetString() == "Ready")
+                ready.TrySetResult(data);
+            else
+                prepared.TrySetResult(data);
+        });
+
+        await connection.StartAsync();
+        await connection.SendAsync("JoinStationGroup", stationId);
+        await Task.Delay(200);
+
+        var prepResponse = await client.PostAsync($"/kds/lines/{lineId}/start-preparing", null);
+        prepResponse.EnsureSuccessStatusCode();
+
+        var prepEvent = await prepared.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(orderId, prepEvent.GetProperty("orderId").GetGuid());
+        Assert.Equal(lineId, prepEvent.GetProperty("lineId").GetGuid());
+        Assert.Equal("Preparing", prepEvent.GetProperty("status").GetString());
+
+        var readyResponse = await client.PostAsync($"/kds/lines/{lineId}/ready", null);
+        readyResponse.EnsureSuccessStatusCode();
+
+        var readyEvent = await ready.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(lineId, readyEvent.GetProperty("lineId").GetGuid());
+        Assert.Equal("Ready", readyEvent.GetProperty("status").GetString());
+
+        await connection.StopAsync();
+    }
+
     private WebApplicationFactory<Program> CreateFactory()
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>

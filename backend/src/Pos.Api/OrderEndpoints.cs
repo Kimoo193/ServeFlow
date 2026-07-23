@@ -524,6 +524,16 @@ internal static class OrderEndpoints
 
             await db.SaveChangesAsync(ct);
 
+            // Broadcast the bump to every KDS terminal on this station so a second
+            // screen mirrors it live (the bumping terminal also updates optimistically).
+            await hubContext.Clients.Group($"station:{line.StationId}").SendAsync("OrderLineStatusChanged", new
+            {
+                orderId = line.OrderId,
+                lineId = line.Id,
+                fireBatchId = line.FireBatchId,
+                status = line.Status.ToString(),
+            }, ct);
+
             if (order is not null)
             {
                 await hubContext.Clients.Group($"waiter:{order.WaiterId}").SendAsync("LineStatusChanged", new
@@ -564,6 +574,16 @@ internal static class OrderEndpoints
             db.OrderEvents.Add(orderEvent);
 
             await db.SaveChangesAsync(ct);
+
+            // Broadcast the bump to every KDS terminal on this station; a Ready line
+            // leaves the active board on the receiving screens just as it does here.
+            await hubContext.Clients.Group($"station:{line.StationId}").SendAsync("OrderLineStatusChanged", new
+            {
+                orderId = line.OrderId,
+                lineId = line.Id,
+                fireBatchId = line.FireBatchId,
+                status = line.Status.ToString(),
+            }, ct);
 
             if (order is not null)
             {
