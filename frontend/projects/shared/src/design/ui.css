@@ -204,6 +204,7 @@ label.field-label {
   border: 1px solid transparent;
 }
 .banner--error { background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.22); color: #b3261e; }
+.banner--warn  { background: rgba(245, 165, 36, 0.10); border-color: rgba(245, 165, 36, 0.28); color: #8a5a06; }
 .banner--info  { background: rgba(91, 141, 239, 0.08); border-color: rgba(91, 141, 239, 0.22); color: #2f57b0; }
 .banner .banner-dismiss {
   margin-inline-start: auto;

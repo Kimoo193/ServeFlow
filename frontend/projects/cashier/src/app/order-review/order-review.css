@@ -12,141 +12,89 @@
   align-items: center;
   gap: 12px;
   padding: 14px 24px;
-  border-bottom: 1px solid rgba(15, 95, 82, 0.10);
-  background: #fff;
+  border-block-end: 1px solid var(--sf-hair);
+  background: var(--sf-surface);
 }
 
 .back {
   font-size: 24px; line-height: 1;
-  width: 36px; height: 36px;
+  inline-size: 36px; block-size: 36px;
   display: grid; place-items: center;
   color: var(--sf-spruce);
   background: transparent;
-  border: 1px solid rgba(15, 95, 82, 0.16);
-  border-radius: 8px;
+  border: 1px solid var(--sf-hair-2);
+  border-radius: var(--sf-radius-sm);
   text-decoration: none;
   cursor: pointer;
 }
+.back:hover { border-color: var(--sf-spruce); background: var(--sf-surface-2); }
 
 .title {
   margin: 0;
-  font-size: 20px; font-weight: 800; letter-spacing: -0.02em;
+  font-size: var(--fs-lg);
+  font-weight: 800;
+  letter-spacing: -0.02em;
   color: var(--sf-ink);
 }
+.order-id { margin-inline-start: auto; font-size: var(--fs-base); color: var(--sf-muted); }
 
-.order-id {
-  margin-inline-start: auto;
-  font-size: 13px;
-  color: var(--sf-draft);
-}
+/* full-width banner under the topbar (kit .banner + edge modifier) */
+.edge-banner { margin: 0; border-radius: 0; border-inline: none; border-block-start: none; padding-inline: 24px; }
 
-.banner {
-  margin: 0;
-  padding: 10px 24px;
-  font-size: 13px;
-}
-.error-banner {
-  color: var(--sf-voided);
-  background: rgba(239, 68, 68, 0.08);
-  border-bottom: 1px solid rgba(239, 68, 68, 0.20);
-}
-.close-error-banner {
-  color: var(--sf-preparing);
-  background: rgba(245, 165, 36, 0.08);
-  border-bottom: 1px solid rgba(245, 165, 36, 0.25);
-}
-
-.empty {
-  margin: auto;
-  text-align: center;
-  color: var(--sf-draft);
-  font-size: 17px;
-}
+.empty { margin: auto; }
 
 .bill {
   flex: 1;
-  max-width: 600px;
-  width: 100%;
+  max-inline-size: 600px;
+  inline-size: 100%;
   margin: 0 auto;
   padding: 20px 24px;
 }
 
-.closed-bill .closed-at {
-  margin: 0 0 14px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--sf-served);
-}
+.closed-bill .closed-at { margin: 0 0 14px; text-align: center; font-size: var(--fs-base); color: var(--sf-muted-2); }
 
-.lines {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
+.lines { inline-size: 100%; border-collapse: collapse; font-size: var(--fs-base); }
 .lines th {
-  text-align: left;
-  font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
-  color: var(--sf-draft);
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(15, 95, 82, 0.10);
+  text-align: start;
+  font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--sf-muted);
+  padding-block-end: 8px;
+  border-block-end: 1px solid var(--sf-hair);
 }
+.lines td { padding: 6px 0; border-block-end: 1px solid var(--sf-hair); }
 
-.lines td {
-  padding: 6px 0;
-  border-bottom: 1px solid rgba(15, 95, 82, 0.04);
-}
+.col-qty { inline-size: 44px; color: var(--sf-spruce); font-weight: 600; font-family: var(--sf-font-mono); }
+.col-price { inline-size: 80px; text-align: end; color: var(--sf-muted-2); }
+.col-total { inline-size: 80px; text-align: end; font-weight: 600; }
 
-.col-qty { width: 44px; color: var(--sf-spruce); font-weight: 600; }
-.col-item { }
-.col-price { width: 80px; text-align: right; color: var(--sf-served); }
-.col-total { width: 80px; text-align: right; font-weight: 600; }
+.mod-row td { padding-block-start: 0; padding-block-end: 4px; border: none; }
+.mod-name { font-size: var(--fs-sm); color: var(--sf-muted-2); padding-inline-start: 20px; }
+.mod-row .col-price { font-size: var(--fs-sm); }
 
-.mod-row td { padding-top: 0; padding-bottom: 4px; border: none; }
-.mod-name { font-size: 13px; color: var(--sf-served); padding-left: 20px; }
-.mod-row .col-price { font-size: 13px; }
-
-.totals {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 2px solid var(--sf-spruce);
-}
-
-.total-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 4px 0;
-  font-size: 14px;
-  color: var(--sf-ink);
-}
-
+.totals { margin-block-start: 16px; padding-block-start: 12px; border-block-start: 2px solid var(--sf-spruce); }
+.total-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: var(--fs-base); color: var(--sf-ink); }
 .total-row.grand {
-  margin-top: 4px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(15, 95, 82, 0.16);
-  font-size: 18px;
+  margin-block-start: 4px;
+  padding-block-start: 8px;
+  border-block-start: 1px solid var(--sf-hair-2);
+  font-size: var(--fs-lg);
   font-weight: 800;
 }
 
 .actions {
   padding: 16px 24px 24px;
-  max-width: 600px;
-  width: 100%;
+  max-inline-size: 600px;
+  inline-size: 100%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
+.hint { margin: 0; font-size: var(--fs-base); text-align: center; color: #8a5a06; }
 
-.hint {
-  margin: 0;
-  font-size: 13px;
-  text-align: center;
-  color: var(--sf-preparing);
-}
-
+/* Large till CTAs — kit palette, sized for touch. */
 .close-btn, .print-btn {
-  font: inherit; font-weight: 700; font-size: 15px;
+  font: inherit; font-weight: 700; font-size: var(--fs-md);
   padding: 14px 20px;
   color: #fff;
   background: var(--sf-spruce);
@@ -154,23 +102,13 @@
   border-radius: var(--sf-radius-sm);
   cursor: pointer;
   text-align: center;
+  transition: background 0.15s var(--ease-out);
 }
+.close-btn:hover:not(:disabled) { background: var(--sf-spruce-deep); }
 .close-btn:disabled { opacity: 0.5; cursor: default; }
 .print-btn { background: var(--sf-ink); }
+.print-btn:hover:not(:disabled) { background: #0c1512; }
 
-.back-link {
-  text-align: center;
-  font-size: 13px;
-  color: var(--sf-spruce);
-  text-decoration: none;
-  padding: 8px;
-}
+.back-link { text-align: center; font-size: var(--fs-base); color: var(--sf-spruce); text-decoration: none; padding: 8px; }
 .back-link:hover { text-decoration: underline; }
-
-.print-result {
-  margin: 0;
-  text-align: center;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--sf-spruce);
-}
+.print-result { margin: 0; text-align: center; font-size: var(--fs-base); font-weight: 600; color: var(--sf-spruce); }

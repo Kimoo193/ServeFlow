@@ -1,10 +1,26 @@
 /* Service Spruce tokens are the single source of truth, shared across apps. */
 @import '../../shared/src/design/service-spruce.css';
+@import '../../shared/src/design/ui.css';
+
+/* The KDS is a dark wall screen: remap the kit's neutral role variables to the
+   dark KDS tokens so the shared primitives (fields, buttons, cards, banners)
+   render on dark. Brand + status hues carry over unchanged. The signature board
+   and ticket cards are intentionally bespoke and don't use the generic kit. */
+:root {
+  --sf-surface:   var(--sf-kds-panel);
+  --sf-surface-2: var(--sf-kds-panel-2);
+  --sf-ink:       var(--sf-kds-text);
+  --sf-muted:     var(--sf-kds-text-dim);
+  --sf-muted-2:   #B7C4C9;
+  --sf-hair:      var(--sf-kds-line);
+  --sf-hair-2:    #35474F;
+}
 
 html, body {
   height: 100%;
   background: var(--sf-kds-bg);
   color: var(--sf-kds-text);
+  font-size: var(--fs-base);
 }
 
 body { overflow: hidden; } /* the board owns its own scrolling */

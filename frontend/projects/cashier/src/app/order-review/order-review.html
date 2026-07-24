@@ -12,14 +12,14 @@
   </header>
 
   @if (error()) {
-    <p class="banner error-banner" role="alert">{{ error() }}</p>
+    <div class="banner banner--error edge-banner" role="alert">{{ error() }}</div>
   }
   @if (closeError()) {
-    <p class="banner close-error-banner" role="alert">{{ closeError() }}</p>
+    <div class="banner banner--warn edge-banner" role="alert">{{ closeError() }}</div>
   }
 
   @if (loading()) {
-    <p class="empty">Loading…</p>
+    <div class="empty"><span class="empty-hint">Loading…</span></div>
 
   } @else if (viewState() === 'preview') {
     @let p = preview();

@@ -1,31 +1,34 @@
 <main class="wrap">
-  <form class="card" (ngSubmit)="connect()">
+  <form class="card connect-card" (ngSubmit)="connect()">
     <div class="brand">
       <span class="mark" aria-hidden="true"></span>
       <span class="word">ServeFlow</span>
-      <span class="kicker">Cashier</span>
+      <span class="badge badge--muted">Cashier</span>
     </div>
 
     <p class="lead">Connect to review and close orders.</p>
 
-    <label>Tenant ID
-      <input name="tenantId" [ngModel]="tenantId()" (ngModelChange)="tenantId.set($event)"
+    <div class="field">
+      <label class="field-label" for="tenantId">Tenant ID</label>
+      <input id="tenantId" class="input mono-input" name="tenantId" [ngModel]="tenantId()" (ngModelChange)="tenantId.set($event)"
              autocomplete="off" spellcheck="false" placeholder="00000000-0000-…" />
-    </label>
-    <label>Branch ID
-      <input name="branchId" [ngModel]="branchId()" (ngModelChange)="branchId.set($event)"
+    </div>
+    <div class="field">
+      <label class="field-label" for="branchId">Branch ID</label>
+      <input id="branchId" class="input mono-input" name="branchId" [ngModel]="branchId()" (ngModelChange)="branchId.set($event)"
              autocomplete="off" spellcheck="false" placeholder="00000000-0000-…" />
-    </label>
-    <label>User ID
-      <input name="userId" [ngModel]="userId()" (ngModelChange)="userId.set($event)"
+    </div>
+    <div class="field">
+      <label class="field-label" for="userId">User ID</label>
+      <input id="userId" class="input mono-input" name="userId" [ngModel]="userId()" (ngModelChange)="userId.set($event)"
              autocomplete="off" spellcheck="false" placeholder="staff id billing orders" />
-    </label>
+    </div>
 
     @if (error()) {
-      <p class="error" role="alert">{{ error() }}</p>
+      <p class="connect-error" role="alert">{{ error() }}</p>
     }
 
-    <button type="submit" [disabled]="busy()">
+    <button type="submit" class="btn btn-primary connect-submit" [disabled]="busy()">
       {{ busy() ? 'Connecting…' : 'Open cashier desk' }}
     </button>
   </form>
