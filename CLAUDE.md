@@ -167,10 +167,12 @@ reasoning is not rediscovered later.
    bundle price wins. A combo expands into component `OrderLine`s per BR-O-06 with
    `Combo.Price` allocated across them proportionally to list price, so `subtotal` over
    non-voided lines equals the bundle price (BR-B-01 holds).
-   **Still to confirm:** `order_lines.unit_price` is `numeric(10,2)`, so with a component
-   quantity > 1 no 2-decimal unit price makes `Σ(quantity × unit_price)` equal an arbitrary
-   bundle price. Options and the recommendation are in `ROADMAP.md` item 3. Do not start the
-   implementation until Kareem picks one.
+   *(Precision decided 2026-07-26)* `order_lines.unit_price` is `numeric(10,2)`, and with a
+   quantity > 1 on one line no 2-decimal unit price can total an arbitrary bundle price
+   (10.00 over ×3 is 9.99 or 10.02, never 10.00). So **each component unit becomes its own
+   quantity-1 `OrderLine`** and the remainder cents are spread one per line. Widening the
+   column was rejected — `1/3` never terminates, so it shrinks the error without removing it.
+   Unimplemented; see `ROADMAP.md` item 3 for the consequences to handle.
 3. ~~**Offline idempotency + `row_version` granularity**~~ *(RESOLVED — shipped)* — client
    supplies the Guid: `orderId` on `POST /tables/{id}/orders` and the line id on add-line, so
    a replay returns the same row instead of duplicating. `Order.RowVersion` guards structural

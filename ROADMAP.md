@@ -2,9 +2,9 @@
 
 Working document for the post-review hardening programme. Written 2026-07-25.
 
-The five items came out of a lead-engineering review of the Phase-1 codebase. Two are done and
-on `main`; three remain. Each remaining item below is written to be picked up cold — what the
-problem is, why it matters, and the decisions already made so nobody re-litigates them.
+The five items came out of a lead-engineering review of the Phase-1 codebase. Four are done and
+on `main`; one remains. Each item below is written to be picked up cold — what the problem was,
+why it mattered, and the decisions made so nobody re-litigates them.
 
 ---
 
@@ -14,12 +14,12 @@ problem is, why it matters, and the decisions already made so nobody re-litigate
 |---|---|---|
 | 1 | Real authentication (login, session hardening) | **Done** — backend `d3b6aba`, frontend below |
 | 2 | Authorize the order lifecycle | **Done** — `a11affc` |
-| 3 | Combos: decide pricing or hide the feature | **Not started** — decision made, unimplemented |
-| 4 | Reconcile `CLAUDE.md` with reality | **Not started** |
-| 5 | A thin frontend test layer | **Started** — auth layer covered, apps outstanding |
+| 3 | Combos: make them orderable | **Not started** ← **only item left** |
+| 4 | Reconcile `CLAUDE.md` with reality | **Done** — `32b5e7f` |
+| 5 | A thin frontend test layer | **Done** — `316d8e5`, `2411526` |
 
-Tests: **105 passing** (was 80 at review time). Backend gates green; all three Angular apps
-build clean.
+Tests: **105 backend** (was 80 at review time) and **84 frontend** (was 0). All gates green;
+all three Angular apps build clean.
 
 ---
 
@@ -59,7 +59,21 @@ unique index present, all 8 pre-existing rows intact, login round-tripped end to
 
 Dev credentials: `owner` / `manager` / `cashier` / `waiter` / `kitchen`, password `devpass123`.
 
----
+### ✅ 4 — `CLAUDE.md` reconciled with reality (`32b5e7f`)
+
+The doc promised Clean Architecture with invariants in Domain and use-cases in Application.
+Measured: Domain 344 lines of property bags, Application 3 files / 33 lines, every rule inline
+in `Pos.Api` endpoint lambdas. The transaction-script approach stays — retrofitting buys little
+— but the doc now says so, and says the thing that matters: **read the endpoint, not
+`Pos.Domain`**, and promote a rule to the entity when it appears at several sites.
+
+`Order.IsAcceptingChanges` (+ the static `AcceptingChanges` expression for EF, which cannot
+translate the computed property) replaced the Open-or-InProgress guard at its four call sites.
+Verified no schema impact: `ef migrations has-pending-model-changes` reports none.
+
+Open decisions #1, #3 and #4 closed against the code rather than the notes — including that
+**KimooKit never existed**, and the gap where bump events reach only the `waiter:` group, which
+the frontend model comment had claimed otherwise.
 
 ### ✅ 1b — Frontend auth hardening
 
@@ -86,35 +100,31 @@ in `a11affc` never reached any pre-existing dev database, and the KDS 403'd on e
 It now grants each missing `(role, permission)` pair. Two regression tests cover it, and
 both were confirmed to fail against the old guard before being kept.
 
+### ✅ 5 — A frontend test layer (`316d8e5`, `2411526`)
+
+From **zero** `.spec.ts` files to **84 tests**. No packages were needed: `vitest` 4 + `jsdom`
+and the `@angular/build:unit-test` builder were already configured on all four projects — this
+roadmap's earlier note about needing a runner and rule-7 approval was wrong.
+
+- **shared/auth (28)** — login request shape; `userId`/`role` taken from the response, not the
+  request; password never persisted; `APP_ID`-scoped storage key and two apps not sharing a
+  session; restore accepting a future `exp` and rejecting past/non-JWT/garbled/context-less/
+  malformed values; a login→refresh round trip; both interceptors, including that a 401 from
+  `/auth/login` neither clears the session nor redirects.
+- **KDS station board (34)** — the event reducer. Notably `firstSeenAt` surviving a reload (so a
+  reconnect doesn't reset every aging timer) and a re-delivered `OrderFired` merging by line id
+  rather than doubling the lines.
+- **The three connect screens (11 each)** — validation before submit, exact navigation target,
+  and the password signal cleared after a successful login.
+
+Every spec was checked by **mutation**, not just by passing: dropping the `/auth/login`
+exemption fails exactly one test; reverting the storage key to the old shared constant fails 13.
+
+This found a real bug, now fixed: `onStart`/`onReady` set `error()` and then called `reload()`,
+which clears `error()` on success — so a failed bump reverted the line with nothing on screen
+to say why. The message is now set after the reload, and a reload failure outranks it.
+
 ## Remaining
-
-### 5 — A thin frontend test layer  ← **in progress, continue here**
-
-The workspace went from **zero** `.spec.ts` files to **28 tests** covering the shared auth
-layer. No packages were needed: `vitest` 4 + `jsdom` and the `@angular/build:unit-test`
-builder were already configured on all four projects — the roadmap's earlier note about
-needing a runner (and rule-7 approval) was wrong.
-
-**Done** — `projects/shared/src/lib/auth/`:
-- `session.service.spec.ts` — login request shape, `userId`/`role` taken from the response
-  rather than the request, password never persisted, `APP_ID`-scoped storage key, two apps not
-  sharing a session, restore accepting a future `exp` and rejecting past/non-JWT/garbled/
-  context-less/malformed values, a login→refresh round trip, and `disconnect`.
-- `auth.interceptor.spec.ts` — bearer attach/skip; a 401 in session clears and routes to `/`;
-  a 401 from `/auth/login` does neither; a 401 with no session does neither; a 500 passes
-  through. Every case also asserts the error still reaches the caller.
-- `loginErrorMessage` — every mapped status plus the non-`HttpErrorResponse` fallback.
-
-Each spec was checked by mutation, not just by passing: dropping the `/auth/login` exemption
-fails exactly one test, and reverting the storage key to the old shared constant fails 13.
-
-**Still to do:**
-- The three connect components (validation before submit; the password signal cleared after a
-  successful login).
-- The KDS board's event reducer (`OrderFired` / `OrderLineVoided` / status bumps) — the
-  highest-risk untested logic left in the frontend.
-- The `kds`, `cashier`, and `manager` projects each still have zero specs, so `ng test <app>`
-  fails with "No tests found" for all three.
 
 ### 3 — Combos: make them orderable
 
@@ -127,52 +137,34 @@ component `OrderLine`s per BR-O-06, with `Combo.Price` allocated across them pro
 list price so `subtotal` over non-voided lines equals the bundle price (BR-B-01 holds) and
 per-item reporting stays meaningful.
 
-⚠️ **Implementation constraint found while scoping:** `order_lines.unit_price` is
-`numeric(10,2)`. With a 2-decimal unit price, `Σ(quantity × unit_price)` cannot generally be made
-to equal an arbitrary bundle price when a component quantity is > 1. Options:
-
-- **(a)** Expand per *unit* — one `OrderLine` of quantity 1 per component unit. Always exact,
-  simple, and arguably better for KDS bump granularity. Costs more lines on the ticket.
-- **(b)** Allocate line totals exactly and let the last line's unit price absorb the remainder —
-  leaves a residual of up to (qty−1) cents on the money path. Not recommended.
-- **(c)** Widen `unit_price` precision. A migration on the money column; broadest blast radius.
-
-Recommendation: **(a)**. Whichever is chosen, the test must assert exactness:
-`Σ(qty × unit_price) == Combo.Price × comboQty`, including a case with awkward numbers and a
-quantity-2 component.
-
-Also: until this ships, consider hiding the Combos tab — shipping configurable-but-unorderable is
-worse than shipping neither.
-
-### 4 — Reconcile `CLAUDE.md` with reality
-
-`CLAUDE.md` describes Clean Architecture with invariants in Domain and use-cases in Application.
-Measured reality:
+**Precision decided 2026-07-26 by Kareem: (a), expand per unit.** `order_lines.unit_price` is
+`numeric(10,2)`, and with a quantity > 1 on a single line no 2-decimal unit price can make
+`Σ(quantity × unit_price)` equal an arbitrary bundle price:
 
 ```
-Pos.Domain           31 files    350 lines   anemic: property bags + enums, no behaviour
-Pos.Application       6 files     67 lines   3 real files: IClock, ITenantContext, 1 exception
-Pos.Infrastructure   45 files   8318 lines
-Pos.Api              16 files   2395 lines   OrderEndpoints.cs alone is 1239 lines
+Combo = 10.00, one component ×3
+  one line, unit_price 3.33 ×3 =  9.99   ✗
+  one line, unit_price 3.34 ×3 = 10.02   ✗
+  three quantity-1 lines: 3.34 + 3.33 + 3.33 = 10.00   ✓
 ```
 
-There are **no use-cases**; all logic is transaction-script style in endpoint lambdas over EF.
-That is a defensible MVP choice — the risk is the mismatch: the doc sends contributors (and
-agents) to Domain for invariants, they find nothing, and re-implement a rule inline. The
-`status != Open && status != InProgress` guard is already duplicated at four sites
-(`OrderEndpoints.cs:144, 203, 447` and the `.Where` at `:277`).
+So each component **unit** becomes its own quantity-1 `OrderLine`, and the remainder cents are
+distributed one per line until exhausted. Widening the column was rejected: `1/3` does not
+terminate at any decimal precision, so it reduces the error without removing it, and it touches
+every money path.
 
-Do **not** retrofit Clean Architecture — little gain. Instead:
+Consequences to handle rather than discover:
+- A 3-item combo puts 3+ lines on the KDS ticket. Acceptable — it also gives per-unit bump
+  granularity — but the ticket needs to show they belong to one combo, or the kitchen reads it
+  as three unrelated items.
+- Voiding one unit of a combo now voids part of a bundle. Check this against BR-B-01 before
+  building: the subtotal must stay coherent when a component line is voided.
 
-- Make the doc state what the code actually is.
-- Extract the repeated order-status guards onto `Order` as real methods — the value of a domain
-  layer without the ceremony.
-- Record the decisions already made in code but still listed as "open":
-  - #2 combo pricing — decided (above), not yet implemented.
-  - #3 `row_version` granularity — shipped: `Order.RowVersion` only, for structural writes.
-  - #4 SignalR groups / hub auth — shipped: `PosHub` verifies tenant ownership under RLS before
-    joining a station/branch group.
-- Note that `Permission` enforcement (deferred under #1) is now largely complete.
+The test must assert exactness — `Σ(qty × unit_price) == Combo.Price × comboQty` — with awkward
+numbers (a price that does not divide evenly) and a component of quantity 3.
+
+Until this ships, consider hiding the Combos tab: shipping configurable-but-unorderable is worse
+than shipping neither.
 
 ---
 
