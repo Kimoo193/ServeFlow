@@ -50,7 +50,7 @@ frontend/
 | Layer | Technology |
 |---|---|
 | Backend | .NET 10, ASP.NET Core, EF Core, PostgreSQL 16, Redis 7, SignalR, xUnit |
-| Auth | JWT (dev token endpoint); KimooKit replaces in later slice |
+| Auth | JWT via `POST /auth/login` (PBKDF2 password hashing); an OIDC provider can replace it behind the same contract |
 | Frontend | Angular 22 (standalone/signals), SignalR via `@microsoft/signalr` |
 | Infra | Docker Compose (Postgres + Redis), Coolify (deploy target) |
 
@@ -108,10 +108,10 @@ npx ng serve cashier --port 4201   # Cashier
 npx ng serve kds     --port 4202   # KDS
 ```
 
-Each app opens a **connect** screen. Paste the tenant / branch / user GUIDs from the table
-below; the app exchanges them for a JWT via `/dev/token` and navigates to its main screen.
-The role is hard-coded per app (Manager app → `Manager`, Cashier app → `Cashier`, KDS →
-`Manager`).
+Each app opens a **connect** screen. Enter the tenant / branch GUIDs plus a username and
+password from the table below; the app exchanges them for a JWT via `POST /auth/login` and
+navigates to its main screen. The role comes from the signed-in user — no app asserts a role
+for itself.
 
 ## How to test
 
@@ -126,8 +126,8 @@ point the SignalR backplane at `localhost:6389`, so `pos-redis` must be running.
 it, every endpoint that broadcasts (fire, KDS bump, availability, close) returns 500 and
 roughly a third of the suite fails with errors that look nothing like a Redis problem.
 
-Currently **91 tests** across RLS isolation, permission enforcement, password login, order
-lifecycle, fire batches, close/receipt, and offline idempotency.
+Currently **105 tests** across RLS isolation, permission enforcement, password login, dev
+seeding, order lifecycle, fire batches, close/receipt, and offline idempotency.
 
 Frontend build check (no Jest/Karma tests in Phase 1):
 
@@ -142,53 +142,58 @@ All users belong to the seed **Dev Tenant** (`00000000-0000-0000-0000-0000000000
 
 ### Per-role users
 
-| Name | Role | User ID (GUID) |
-|---|---|---|
-| Dev Owner | Owner | `00000000-0000-0000-0000-000000000003` |
-| Dev Manager | Manager | `00000000-0000-0000-0000-000000000004` |
-| Dev Cashier | Cashier | `00000000-0000-0000-0000-000000000005` |
-| Dev Waiter | Waiter | `00000000-0000-0000-0000-000000000006` |
-| Dev Kitchen | Kitchen | `00000000-0000-0000-0000-000000000007` |
+Every account uses the password `devpass123`.
+
+| Name | Role | Username | User ID (GUID) |
+|---|---|---|---|
+| Dev Owner | Owner | `owner` | `00000000-0000-0000-0000-000000000003` |
+| Dev Manager | Manager | `manager` | `00000000-0000-0000-0000-000000000004` |
+| Dev Cashier | Cashier | `cashier` | `00000000-0000-0000-0000-000000000005` |
+| Dev Waiter | Waiter | `waiter` | `00000000-0000-0000-0000-000000000006` |
+| Dev Kitchen | Kitchen | `kitchen` | `00000000-0000-0000-0000-000000000007` |
 
 ### Connect through the web apps
 
-Open one of the Angular apps, fill in:
+Open one of the Angular apps and fill in:
 - **Tenant ID:** `00000000-0000-0000-0000-000000000001`
 - **Branch ID:** `00000000-0000-0000-0000-000000000002`
-- **User ID:** pick a GUID from the table above
+- **Username / Password:** an account from the table above
 
-Each app sends its own **fixed role** to `/dev/token`:
-- **Cashier** app → `Cashier`
-- **Manager** app → `Manager`
-- **KDS** app → `Manager` (the KDS is a Manager-scoped surface)
+Sign in with the account that matches the surface — `manager` for the Manager app, `cashier`
+for the Cashier app, and `kitchen` for the KDS. The KDS deliberately runs as a `Kitchen`
+account: a wall screen is physically accessible, and `Kitchen` carries only
+`BumpKitchenLine`, so it can work the board but cannot edit the menu or manage staff.
 
-> **Tip:** Use the `Dev Manager` user (`…0004`) for the Manager and KDS apps, and `Dev
-> Cashier` (`…0005`) for the Cashier app. The `Dev Waiter` / `Dev Kitchen` users are
-> intended for the (separate) Flutter waiter app and future KimooKit login — they have no
-> granted permissions in the seed.
+Each app stores its session under its own key (`sf.manager.session`, `sf.cashier.session`,
+`sf.kds.session`), so two apps served from one host no longer overwrite each other.
 
 ### Permission model
 
 - **Owner** bypasses all permission checks (`PermissionAuthorization.cs:12`).
-- **Manager** is granted **all** six permissions by the seed (`RolePermissions`).
-- **Cashier** is granted `CloseOrder` + `ViewHistory` only.
-- **Waiter** and **Kitchen** have **no** granted permissions — calling any
-  `RequirePermission` endpoint returns 403.
+- **Manager** is granted **every** permission by the seed (`RolePermissions`).
+- **Cashier** is granted `CloseOrder`, `ViewHistory`, and `ReprintReceipt`.
+- **Waiter** is granted `TakeOrder`, `FireOrder`, and `ServeLine`.
+- **Kitchen** is granted `BumpKitchenLine` only.
+
+The seed grants each missing `(role, permission)` pair on every start, so a database created
+before a permission was added picks it up on the next run.
+
+Try it with curl:
 
 Try it with curl:
 
 ```bash
-# Get an Owner token (can do everything)
-curl -s -X POST http://localhost:5299/dev/token \
+# Log in as the Owner (can do everything)
+curl -s -X POST http://localhost:5299/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"tenantId":"00000000-0000-0000-0000-000000000001","branchId":"00000000-0000-0000-0000-000000000002","userId":"00000000-0000-0000-0000-000000000003","role":"Owner"}'
+  -d '{"tenantId":"00000000-0000-0000-0000-000000000001","branchId":"00000000-0000-0000-0000-000000000002","username":"owner","password":"devpass123"}'
 ```
 
 ```bash
-# Get a Waiter token, then try a Manager-only endpoint → 403
-TOKEN=$(curl -s -X POST http://localhost:5299/dev/token \
+# Log in as the Kitchen account, then try a Manager-only endpoint → 403
+TOKEN=$(curl -s -X POST http://localhost:5299/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"tenantId":"00000000-0000-0000-0000-000000000001","branchId":"00000000-0000-0000-0000-000000000002","userId":"00000000-0000-0000-0000-000000000006","role":"Waiter"}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["accessToken"])')
+  -d '{"tenantId":"00000000-0000-0000-0000-000000000001","branchId":"00000000-0000-0000-0000-000000000002","username":"kitchen","password":"devpass123"}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["accessToken"])')
 
 curl -s -X POST http://localhost:5299/users \
   -H "Authorization: Bearer $TOKEN" \
@@ -196,6 +201,9 @@ curl -s -X POST http://localhost:5299/users \
   -d '{"displayName":"Intruder","role":"Manager"}'
 # → 403 {"title":"Insufficient permissions","detail":"Requires the ManageStaff permission."}
 ```
+
+`POST /dev/token` still exists in Development for scripting against an arbitrary role, but no
+front-end uses it and it is absent outside Development.
 
 ### Permissions reference
 
@@ -207,3 +215,8 @@ curl -s -X POST http://localhost:5299/users \
 | `ManageFloor` | CRUD sections/tables/stations | Owner, Manager |
 | `ManageStaff` | CRUD users, role-permissions | Owner, Manager |
 | `ViewHistory` | `GET /dashboard/summary`, `GET /orders/history` | Owner, Manager, Cashier |
+| `TakeOrder` | Open an order on a table, `POST /orders`, add/edit/remove lines | Owner, Manager, Waiter |
+| `FireOrder` | `POST /orders/{id}/fire` | Owner, Manager, Waiter |
+| `BumpKitchenLine` | `POST /kds/lines/{id}/start-preparing` and `/ready` | Owner, Manager, Kitchen |
+| `ServeLine` | `POST /orders/{id}/lines/{lineId}/serve` | Owner, Manager, Waiter |
+| `ReprintReceipt` | `POST /orders/{id}/receipt/print` | Owner, Manager, Cashier |

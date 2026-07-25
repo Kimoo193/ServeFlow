@@ -19,9 +19,14 @@
              autocomplete="off" spellcheck="false" placeholder="00000000-0000-…" />
     </div>
     <div class="field">
-      <label class="field-label" for="userId">User ID</label>
-      <input id="userId" class="input mono-input" name="userId" [ngModel]="userId()" (ngModelChange)="userId.set($event)"
-             autocomplete="off" spellcheck="false" placeholder="staff id for menu changes" />
+      <label class="field-label" for="username">Username</label>
+      <input id="username" class="input" name="username" [ngModel]="username()" (ngModelChange)="username.set($event)"
+             autocomplete="username" spellcheck="false" placeholder="the account making changes" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="password">Password</label>
+      <input id="password" class="input" name="password" type="password" [ngModel]="password()"
+             (ngModelChange)="password.set($event)" autocomplete="current-password" />
     </div>
 
     @if (error()) {

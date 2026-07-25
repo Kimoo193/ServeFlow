@@ -1,7 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { SessionService } from 'shared';
+import { SessionService, loginErrorMessage } from 'shared';
 
 @Component({
   selector: 'app-manager-connect',
@@ -15,36 +15,42 @@ export class ManagerConnect {
 
   readonly tenantId = signal('');
   readonly branchId = signal('');
-  readonly userId = signal('');
+  readonly username = signal('');
+  readonly password = signal('');
   readonly error = signal<string | null>(null);
   readonly busy = signal(false);
 
   constructor() {
+    // Only credentials are re-entered on a return visit. Never pre-fill a password.
     const ctx = this.session.context();
     if (ctx) {
       this.tenantId.set(ctx.tenantId);
       this.branchId.set(ctx.branchId);
-      this.userId.set(ctx.userId);
     }
   }
 
   async connect(): Promise<void> {
     this.error.set(null);
-    if (!this.tenantId().trim() || !this.branchId().trim() || !this.userId().trim()) {
-      this.error.set('Tenant, branch, and user id are all required.');
+    if (!this.tenantId().trim() || !this.branchId().trim()) {
+      this.error.set('Tenant and branch id are both required.');
+      return;
+    }
+    if (!this.username().trim() || !this.password()) {
+      this.error.set('Username and password are required.');
       return;
     }
     this.busy.set(true);
     try {
-      await this.session.connect({
+      await this.session.login({
         tenantId: this.tenantId().trim(),
         branchId: this.branchId().trim(),
-        userId: this.userId().trim(),
-        role: 'Manager',
+        username: this.username().trim(),
+        password: this.password(),
       });
+      this.password.set('');
       await this.router.navigate(['/dashboard']);
-    } catch {
-      this.error.set('Could not reach the backend. Is the API running on :5299?');
+    } catch (err) {
+      this.error.set(loginErrorMessage(err));
     } finally {
       this.busy.set(false);
     }

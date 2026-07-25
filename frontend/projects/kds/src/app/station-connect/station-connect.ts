@@ -1,12 +1,15 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { SessionService } from 'shared';
+import { SessionService, loginErrorMessage } from 'shared';
 
 /**
- * Dev/config entry for a KDS terminal: pick which station this screen shows and
- * the tenant/branch context it connects with. KimooKit login replaces this in a
- * later slice — the SessionService interface stays the same.
+ * Entry for a KDS terminal: pick which station this screen shows and sign in as
+ * the kitchen account that will bump its tickets.
+ *
+ * The role is whatever the signed-in user actually is — a wall screen no longer
+ * asserts `Manager` for itself. A `Kitchen` account carries exactly
+ * `BumpKitchenLine`, which is all this board needs.
  */
 @Component({
   selector: 'app-station-connect',
@@ -21,37 +24,44 @@ export class StationConnect {
   readonly tenantId = signal('');
   readonly branchId = signal('');
   readonly stationId = signal('');
-  readonly userId = signal('');
+  readonly username = signal('');
+  readonly password = signal('');
   readonly error = signal<string | null>(null);
   readonly busy = signal(false);
 
   constructor() {
+    // The terminal is provisioned with its tenant/branch; only credentials are
+    // re-entered. Never pre-fill a password.
     const ctx = this.session.context();
     if (ctx) {
       this.tenantId.set(ctx.tenantId);
       this.branchId.set(ctx.branchId);
-      this.userId.set(ctx.userId);
     }
   }
 
   async connect(): Promise<void> {
     this.error.set(null);
     const stationId = this.stationId().trim();
-    if (!this.tenantId().trim() || !this.branchId().trim() || !stationId || !this.userId().trim()) {
-      this.error.set('Tenant, branch, station, and user id are all required.');
+    if (!this.tenantId().trim() || !this.branchId().trim() || !stationId) {
+      this.error.set('Tenant, branch, and station id are all required.');
+      return;
+    }
+    if (!this.username().trim() || !this.password()) {
+      this.error.set('Username and password are required.');
       return;
     }
     this.busy.set(true);
     try {
-      await this.session.connect({
+      await this.session.login({
         tenantId: this.tenantId().trim(),
         branchId: this.branchId().trim(),
-        userId: this.userId().trim(),
-        role: 'Manager',
+        username: this.username().trim(),
+        password: this.password(),
       });
+      this.password.set('');
       await this.router.navigate(['/board', stationId]);
-    } catch {
-      this.error.set('Could not reach the backend. Is the API running on :5299?');
+    } catch (err) {
+      this.error.set(loginErrorMessage(err));
     } finally {
       this.busy.set(false);
     }
