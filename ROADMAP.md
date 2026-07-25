@@ -2,9 +2,9 @@
 
 Working document for the post-review hardening programme. Written 2026-07-25.
 
-The five items came out of a lead-engineering review of the Phase-1 codebase. Four are done and
-on `main`; one remains. Each item below is written to be picked up cold — what the problem was,
-why it mattered, and the decisions made so nobody re-litigates them.
+The five items came out of a lead-engineering review of the Phase-1 codebase. **All five are
+done and on `main`.** Each is written up below so the reasoning is not rediscovered later.
+New findings that came out of the work are collected under *Found along the way*.
 
 ---
 
@@ -14,11 +14,11 @@ why it mattered, and the decisions made so nobody re-litigates them.
 |---|---|---|
 | 1 | Real authentication (login, session hardening) | **Done** — backend `d3b6aba`, frontend below |
 | 2 | Authorize the order lifecycle | **Done** — `a11affc` |
-| 3 | Combos: make them orderable | **Not started** ← **only item left** |
+| 3 | Combos: make them orderable | **Done** — `0091b38` |
 | 4 | Reconcile `CLAUDE.md` with reality | **Done** — `32b5e7f` |
 | 5 | A thin frontend test layer | **Done** — `316d8e5`, `2411526` |
 
-Tests: **105 backend** (was 80 at review time) and **84 frontend** (was 0). All gates green;
+Tests: **134 backend** (was 80 at review time) and **84 frontend** (was 0). All gates green;
 all three Angular apps build clean.
 
 ---
@@ -124,58 +124,57 @@ This found a real bug, now fixed: `onStart`/`onReady` set `error()` and then cal
 which clears `error()` on success — so a failed bump reverted the line with nothing on screen
 to say why. The message is now set after the reload, and a reload failure outranks it.
 
-## Remaining
+### ✅ 3 — Combos are orderable (`0091b38`)
 
-### 3 — Combos: make them orderable
+`POST /orders/{orderId}/combos` expands a combo into one Draft line per component unit, each
+routed to its own item's station. Verified end to end against the running stack: a 9.99 bundle
+over an 8.00 burger and 3x 2.50 fries allocated to **5.16 + 1.61 + 1.61 + 1.61 = 9.99 exactly**,
+the burger taking the leftover cent as the largest fractional share. Firing put 1 line on the
+Grill board and 3 on the Fryer board, which is BR-O-06 working as written.
 
-**Combos are a dead end today**: full CRUD in the API and the Manager UI (36 references in
-`MenuEndpoints.cs`, a whole `combo-panel` component) and **zero references in
-`OrderEndpoints.cs`**. A manager can build a combo nobody can ever order, with no warning.
+`ComboAllocation` (in `Pos.Domain`, the first content in the previously empty
+`Pos.Domain.Tests`) does largest-remainder allocation weighted by list price and guarantees the
+sum. Provenance is three nullable columns — `combo_id`, `combo_instance_id`, `combo_name` —
+with `combo_name` snapshotted rather than joined, per golden rule 6, and deliberately no foreign
+key so a retired combo stays deletable.
 
-**Decision made (open decision #2 in `CLAUDE.md`): the bundle price wins.** A combo expands into
-component `OrderLine`s per BR-O-06, with `Combo.Price` allocated across them proportionally to
-list price so `subtotal` over non-voided lines equals the bundle price (BR-B-01 holds) and
-per-item reporting stays meaningful.
+Two interaction bugs were found and fixed while building; both silently broke the bundle:
+`PATCH` on a line reset `UnitPrice` to the menu price, and `increase-quantity` copied the
+allocated price onto a new line with no provenance, selling an extra item at the combo discount.
+Both now refuse combo components.
 
-**Precision decided 2026-07-26 by Kareem: (a), expand per unit.** `order_lines.unit_price` is
-`numeric(10,2)`, and with a quantity > 1 on a single line no 2-decimal unit price can make
-`Σ(quantity × unit_price)` equal an arbitrary bundle price:
+Voiding one component behaves exactly as the spec analysis predicted with no combo-aware logic:
+voiding one 1.61 fries took the subtotal 9.99 -> 8.38 (BR-B-01).
 
-```
-Combo = 10.00, one component ×3
-  one line, unit_price 3.33 ×3 =  9.99   ✗
-  one line, unit_price 3.34 ×3 = 10.02   ✗
-  three quantity-1 lines: 3.34 + 3.33 + 3.33 = 10.00   ✓
-```
+Still not supported, deliberately: modifiers on combo components, whole-combo void in one
+action, multiple combos per call.
 
-So each component **unit** becomes its own quantity-1 `OrderLine`, and the remainder cents are
-distributed one per line until exhausted. Widening the column was rejected: `1/3` does not
-terminate at any decimal precision, so it reduces the error without removing it, and it touches
-every money path.
+---
 
-Two of the consequences resolve against the specs; a third is genuinely open.
+## Found along the way (not yet addressed)
 
-- **Voiding one unit — resolved, no special handling.** BR-B-01 says the bill is computed from
-  non-voided lines only, so a voided component simply takes its allocated share out of the
-  subtotal. Voiding one unit of a three-unit combo drops roughly a third of the bundle price,
-  which is the coherent answer. No combo-aware void logic is needed.
-- **Grouping the lines on the KDS ticket — resolved, do not do it.** BR-O-06 says each component
-  line "is routed to its own station independently", so a combo's lines may legitimately land on
-  *different* station screens and cannot be one ticket. BR-O-04/05 ask only for sequence order
-  and station routing. The earlier worry here was misplaced.
-- **⚠️ Open: `OrderLine` has no combo provenance.** There is no `ComboId` column, so once a combo
-  expands, nothing records that those lines came from one. Consequences: the receipt (BR-B-04)
-  shows a Burger at `3.34` with no explanation of why it is not `8.00`, and a whole combo cannot
-  be voided in one action. Nothing in the spec requires provenance, so it can ship without —
-  but adding it later is a migration on a hot table. **Decide before building**, and note a
-  nullable `combo_id` on `order_lines` needs a migration, which per CLAUDE.md must be shown and
-  approved first.
+Neither is caused by the combo work; both were exposed by driving the money path end to end.
 
-The test must assert exactness — `Σ(qty × unit_price) == Combo.Price × comboQty` — with awkward
-numbers (a price that does not divide evenly) and a component of quantity 3.
+### ⚠️ Order totals are stored and returned unrounded
 
-Until this ships, consider hiding the Combos tab: shipping configurable-but-unorderable is worse
-than shipping neither.
+`order_lines.unit_price` and `combos.price` are `numeric(10,2)`, but the order total columns
+(`subtotal_amount`, `service_amount`, `tax_amount`, `total_amount` in `OrderConfiguration.cs:40-48`)
+have **no explicit column type**, so EF defaults them to `numeric(18,6)`.
+
+A real closed order from the e2e run holds `total_amount = 10.558800`, and `POST /close` returns
+`10.5588`. The printed receipt formats with `:F2` and says `10.56`. So the authoritative stored
+total is not a payable amount, and it disagrees with the printed one by 0.0012.
+
+BR-B-03 requires totals to be snapshotted at close; it does not say at what precision. Decide
+whether to round at close, constrain the columns, or both — the last needs a migration.
+
+### ⚠️ The printed receipt shows item GUIDs, not names
+
+`BuildReceiptBytes` prints `line.ItemId`, so a customer receipt reads
+`1x f549e822-23ef-4356-a5a7-048a91aaceee ... 5.16`. BR-B-04 asks for the lines with quantity and
+price; a GUID makes the receipt unusable. `OrderLine` has no item-name snapshot, so fixing it
+properly means snapshotting the name at order time the way modifier names already are — the same
+argument that added `combo_name`.
 
 ---
 
