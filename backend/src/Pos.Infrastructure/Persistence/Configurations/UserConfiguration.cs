@@ -37,5 +37,14 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(u => u.TenantId);
+
+        builder.Property(u => u.Username)
+            .HasColumnName("username")
+            .HasMaxLength(100);
+
+        builder.Property(u => u.PasswordHash)
+            .HasColumnName("password_hash");
+
+        builder.HasIndex(u => new { u.TenantId, u.Username }).IsUnique();
     }
 }

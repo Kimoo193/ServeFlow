@@ -116,12 +116,17 @@ The role is hard-coded per app (Manager app → `Manager`, Cashier app → `Cash
 ## How to test
 
 ```bash
+docker compose up -d redis     # required — see below
 cd backend && dotnet test
 ```
 
-The integration tests spin up their own hermetic Postgres 16 containers via
-Testcontainers — the docker-compose services do **not** need to be running for tests.
-Currently **80 tests** across domain rules, RLS isolation, permission enforcement, order
+The integration tests spin up their own hermetic **Postgres** 16 containers via
+Testcontainers, so you do not need the compose Postgres. **Redis is different: the tests
+point the SignalR backplane at `localhost:6389`, so `pos-redis` must be running.** Without
+it, every endpoint that broadcasts (fire, KDS bump, availability, close) returns 500 and
+roughly a third of the suite fails with errors that look nothing like a Redis problem.
+
+Currently **91 tests** across RLS isolation, permission enforcement, password login, order
 lifecycle, fire batches, close/receipt, and offline idempotency.
 
 Frontend build check (no Jest/Karma tests in Phase 1):

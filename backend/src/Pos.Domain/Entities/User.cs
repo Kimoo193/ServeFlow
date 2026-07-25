@@ -11,4 +11,8 @@ public class User
     public Role Role { get; set; }
 
     public bool IsActive { get; set; }
+
+    public string? Username { get; set; }
+
+    public string? PasswordHash { get; set; }
 }

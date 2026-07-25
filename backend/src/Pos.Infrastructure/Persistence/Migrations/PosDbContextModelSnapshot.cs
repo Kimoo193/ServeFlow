@@ -748,6 +748,10 @@ namespace Pos.Infrastructure.Persistence.Migrations
                         .HasDefaultValue(true)
                         .HasColumnName("is_active");
 
+                    b.Property<string>("PasswordHash")
+                        .HasColumnType("text")
+                        .HasColumnName("password_hash");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -758,9 +762,17 @@ namespace Pos.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");
 
+                    b.Property<string>("Username")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("username");
+
                     b.HasKey("Id");
 
                     b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Username")
+                        .IsUnique();
 
                     b.ToTable("users", (string)null);
                 });

@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
@@ -97,6 +99,28 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Brute-force protection for /auth/login. The limiter is PARTITIONED BY CLIENT IP on
+// purpose: a single named FixedWindowLimiter is one global bucket, so ten bad attempts
+// anywhere would lock every terminal in the venue out of logging in — a self-inflicted
+// outage at shift change, worse than the attack it prevents.
+// NOTE: behind a reverse proxy RemoteIpAddress is the proxy, which collapses all clients
+// into one partition. Whoever deploys this must add ForwardedHeaders middleware so the
+// real client IP is what gets partitioned.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("login", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+            }));
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -153,6 +177,8 @@ if (app.Environment.IsDevelopment())
 // TenantSessionMiddleware and the endpoint handlers below.
 app.UseExceptionHandler();
 
+app.UseRateLimiter();
+
 app.UseCors(CorsPolicyName);
 
 app.UseAuthentication();
@@ -184,6 +210,8 @@ app.MapDiningAreaEndpoints();
 app.MapDashboardEndpoints();
 app.MapOrderEndpoints();
 app.MapStaffEndpoints();
+
+app.MapAuthEndpoints();
 
 app.MapHub<PosHub>("/posHub").RequireAuthorization();
 

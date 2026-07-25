@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Pos.Domain.Entities;
+using Pos.Infrastructure.Auth;
 
 namespace Pos.Infrastructure.Persistence;
 
@@ -17,6 +18,10 @@ public static class DevSeeder
     public static readonly Guid CashierUserId = Guid.Parse("00000000-0000-0000-0000-000000000005");
     public static readonly Guid WaiterUserId = Guid.Parse("00000000-0000-0000-0000-000000000006");
     public static readonly Guid KitchenUserId = Guid.Parse("00000000-0000-0000-0000-000000000007");
+
+    // Development-only credentials — never use in production.
+    private const string DevPassword = "devpass123";
+    private static readonly string DevPasswordHash = PasswordHasher.Hash(DevPassword);
 
     public static async Task SeedAsync(PosDbContext dbContext, CancellationToken cancellationToken = default)
     {
@@ -60,65 +65,11 @@ public static class DevSeeder
             });
         }
 
-        if (!await dbContext.Users.AnyAsync(u => u.Id == OwnerUserId, cancellationToken))
-        {
-            dbContext.Users.Add(new User
-            {
-                Id = OwnerUserId,
-                TenantId = TenantId,
-                DisplayName = "Dev Owner",
-                Role = Role.Owner,
-                IsActive = true,
-            });
-        }
-
-        if (!await dbContext.Users.AnyAsync(u => u.Id == ManagerUserId, cancellationToken))
-        {
-            dbContext.Users.Add(new User
-            {
-                Id = ManagerUserId,
-                TenantId = TenantId,
-                DisplayName = "Dev Manager",
-                Role = Role.Manager,
-                IsActive = true,
-            });
-        }
-
-        if (!await dbContext.Users.AnyAsync(u => u.Id == CashierUserId, cancellationToken))
-        {
-            dbContext.Users.Add(new User
-            {
-                Id = CashierUserId,
-                TenantId = TenantId,
-                DisplayName = "Dev Cashier",
-                Role = Role.Cashier,
-                IsActive = true,
-            });
-        }
-
-        if (!await dbContext.Users.AnyAsync(u => u.Id == WaiterUserId, cancellationToken))
-        {
-            dbContext.Users.Add(new User
-            {
-                Id = WaiterUserId,
-                TenantId = TenantId,
-                DisplayName = "Dev Waiter",
-                Role = Role.Waiter,
-                IsActive = true,
-            });
-        }
-
-        if (!await dbContext.Users.AnyAsync(u => u.Id == KitchenUserId, cancellationToken))
-        {
-            dbContext.Users.Add(new User
-            {
-                Id = KitchenUserId,
-                TenantId = TenantId,
-                DisplayName = "Dev Kitchen",
-                Role = Role.Kitchen,
-                IsActive = true,
-            });
-        }
+        await UpsertDevUser(dbContext, OwnerUserId, "Dev Owner", Role.Owner, "owner", cancellationToken);
+        await UpsertDevUser(dbContext, ManagerUserId, "Dev Manager", Role.Manager, "manager", cancellationToken);
+        await UpsertDevUser(dbContext, CashierUserId, "Dev Cashier", Role.Cashier, "cashier", cancellationToken);
+        await UpsertDevUser(dbContext, WaiterUserId, "Dev Waiter", Role.Waiter, "waiter", cancellationToken);
+        await UpsertDevUser(dbContext, KitchenUserId, "Dev Kitchen", Role.Kitchen, "kitchen", cancellationToken);
 
         if (!await dbContext.RolePermissions.AnyAsync(rp => rp.TenantId == TenantId, cancellationToken))
         {
@@ -152,5 +103,34 @@ public static class DevSeeder
 
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+    }
+
+    private static async Task UpsertDevUser(
+        PosDbContext dbContext,
+        Guid id,
+        string displayName,
+        Role role,
+        string username,
+        CancellationToken cancellationToken)
+    {
+        var user = await dbContext.Users.FindAsync([id], cancellationToken);
+
+        if (user is not null)
+        {
+            user.Username ??= username;
+            user.PasswordHash ??= DevPasswordHash;
+            return;
+        }
+
+        dbContext.Users.Add(new User
+        {
+            Id = id,
+            TenantId = TenantId,
+            DisplayName = displayName,
+            Role = role,
+            IsActive = true,
+            Username = username,
+            PasswordHash = DevPasswordHash,
+        });
     }
 }
