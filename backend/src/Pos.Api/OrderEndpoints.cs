@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Pos.Api.Hubs;
 using Pos.Application.Common;
+using Pos.Domain.Combos;
 using Pos.Domain.Entities;
 using Pos.Infrastructure.Persistence;
 
@@ -195,6 +196,117 @@ internal static class OrderEndpoints
             return Results.Created($"/orders/{orderId}/lines/{line.Id}", new { lineId = line.Id, sequence = line.Sequence, unitPrice = line.UnitPrice, rowVersion = order.RowVersion });
         }).RequirePermission(Permission.TakeOrder);
 
+        // --- Add a combo: expands into one Draft line per component unit (BR-O-06) ---
+        group.MapPost("/orders/{orderId:guid}/combos", async (Guid orderId, AddComboRequest body, PosDbContext db, ITenantContext tenantContext, CancellationToken ct) =>
+        {
+            // Idempotent replay, checked before anything else exactly as add-line does: if this
+            // combo instance already expanded onto this order, hand back what is there rather
+            // than expanding it twice. No row_version check, no insert.
+            if (body.ComboInstanceId.HasValue)
+            {
+                var alreadyExpanded = await db.OrderLines
+                    .Where(ol => ol.OrderId == orderId && ol.ComboInstanceId == body.ComboInstanceId.Value)
+                    .OrderBy(ol => ol.Sequence)
+                    .ToListAsync(ct);
+
+                if (alreadyExpanded.Count > 0)
+                {
+                    var replayedOrder = await db.Orders.FindAsync([orderId], ct);
+                    return Results.Created(
+                        $"/orders/{orderId}",
+                        ComboExpansionResponse(alreadyExpanded, replayedOrder?.RowVersion ?? 0));
+                }
+            }
+
+            var order = await db.Orders.FindAsync([orderId], ct);
+            if (order is null) return Results.NotFound();
+            if (!order.IsAcceptingChanges)
+                return Results.Problem(statusCode: 409, title: "Order is not open");
+
+            if (order.RowVersion != body.RowVersion)
+                return Results.Problem(statusCode: 409, title: "Concurrency conflict", detail: "Stale row version");
+
+            var combo = await db.Combos.FindAsync([body.ComboId], ct);
+            if (combo is null) return Results.Problem(statusCode: 400, title: "Combo not found");
+
+            var comboItems = await db.ComboItems
+                .Where(ci => ci.ComboId == combo.Id)
+                .ToListAsync(ct);
+
+            if (comboItems.Count == 0)
+                return Results.Problem(
+                    statusCode: 400,
+                    title: "Combo has no components",
+                    detail: "A combo with no components cannot be ordered.");
+
+            if (comboItems.Any(ci => ci.Quantity < 1))
+                return Results.Problem(
+                    statusCode: 400,
+                    title: "Combo component quantity is invalid",
+                    detail: "Every component must have a quantity of at least 1.");
+
+            var componentIds = comboItems.Select(ci => ci.ItemId).ToList();
+            var menuItems = await db.MenuItems
+                .Where(mi => componentIds.Contains(mi.Id))
+                .ToDictionaryAsync(mi => mi.Id, ct);
+
+            // One unavailable component makes the whole combo unorderable — the customer cannot
+            // be sold most of a bundle at the bundle price.
+            foreach (var comboItem in comboItems)
+            {
+                if (!menuItems.TryGetValue(comboItem.ItemId, out var component))
+                    return Results.Problem(statusCode: 400, title: "Menu item not found");
+
+                if (component.Availability != Availability.Available)
+                    return Results.Problem(
+                        statusCode: 400,
+                        title: "Item not available",
+                        detail: $"'{component.Name}' is OutOfStock or Hidden.");
+            }
+
+            // One quantity-1 line per unit: see ComboAllocation for why quantity cannot be > 1.
+            var units = comboItems
+                .OrderBy(ci => menuItems[ci.ItemId].Name)
+                .ThenBy(ci => ci.ItemId)
+                .SelectMany(ci => Enumerable.Repeat(menuItems[ci.ItemId], ci.Quantity))
+                .ToList();
+
+            var allocated = ComboAllocation.Allocate(combo.Price, units.Select(u => u.Price).ToList());
+
+            var maxSequence = await db.OrderLines
+                .Where(ol => ol.OrderId == orderId)
+                .MaxAsync(ol => (int?)ol.Sequence, ct) ?? 0;
+
+            var comboInstanceId = body.ComboInstanceId ?? Guid.NewGuid();
+
+            var lines = new List<OrderLine>(units.Count);
+            for (var i = 0; i < units.Count; i++)
+            {
+                var line = new OrderLine
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantContext.TenantId,
+                    OrderId = orderId,
+                    ItemId = units[i].Id,
+                    StationId = units[i].StationId,
+                    Sequence = maxSequence + 1 + i,
+                    Quantity = 1,
+                    UnitPrice = allocated[i],
+                    Status = OrderLineStatus.Draft,
+                    ComboId = combo.Id,
+                    ComboInstanceId = comboInstanceId,
+                    ComboName = combo.Name,
+                };
+                lines.Add(line);
+                db.OrderLines.Add(line);
+            }
+
+            order.RowVersion++;
+            await db.SaveChangesAsync(ct);
+
+            return Results.Created($"/orders/{orderId}", ComboExpansionResponse(lines, order.RowVersion));
+        }).RequirePermission(Permission.TakeOrder);
+
         // --- Update a draft line ---
         group.MapPatch("/orders/{orderId:guid}/lines/{lineId:guid}", async (Guid orderId, Guid lineId, UpdateDraftLineRequest body, PosDbContext db, ITenantContext tenantContext, CancellationToken ct) =>
         {
@@ -210,6 +322,15 @@ internal static class OrderEndpoints
             if (line is null) return Results.NotFound();
             if (line.Status != OrderLineStatus.Draft)
                 return Results.Problem(statusCode: 404, title: "Line is not Draft");
+
+            // A combo component carries an allocated share of a bundle price, not its own list
+            // price. Editing it here would reset UnitPrice to the menu price below and quietly
+            // break the bundle total, so remove the combo and re-add it instead.
+            if (line.ComboInstanceId is not null)
+                return Results.Problem(
+                    statusCode: 409,
+                    title: "Combo component cannot be edited",
+                    detail: "This line is part of a combo. Remove the combo and add it again.");
 
             var menuItem = await db.MenuItems.FindAsync([line.ItemId], ct);
             if (menuItem is null) return Results.Problem(statusCode: 400, title: "Menu item not found");
@@ -796,6 +917,15 @@ internal static class OrderEndpoints
             if (body.QuantityDelta <= 0)
                 return Results.Problem(statusCode: 400, title: "Quantity delta must be positive");
 
+            // The added line would copy this line's allocated bundle share as its price and
+            // carry no combo provenance — selling an extra item at the combo discount. Adding
+            // another combo is the coherent way to do this.
+            if (line.ComboInstanceId is not null)
+                return Results.Problem(
+                    statusCode: 409,
+                    title: "Combo component cannot be increased",
+                    detail: "This line is part of a combo. Add another combo instead.");
+
             if (line.Status is OrderLineStatus.Draft or OrderLineStatus.Ready or OrderLineStatus.Served or OrderLineStatus.Voided)
                 return Results.Problem(statusCode: 409, title: "Line cannot be modified in this state");
 
@@ -1019,6 +1149,10 @@ internal static class OrderEndpoints
                     unitPrice = l.UnitPrice,
                     lineTotal = l.UnitPrice * l.Quantity,
                     status = l.Status.ToString(),
+                    // Carries the combo a line was expanded from, so a reader can group the
+                    // lines and see why the price is an allocated share rather than list price.
+                    comboInstanceId = l.ComboInstanceId,
+                    comboName = l.ComboName,
                     modifiers = modifiers
                         .Where(m => m.OrderLineId == l.Id)
                         .Select(m => new { name = m.Name, priceDelta = m.PriceDelta }),
@@ -1083,6 +1217,8 @@ internal static class OrderEndpoints
                     quantity = l.Quantity,
                     unitPrice = l.UnitPrice,
                     lineTotal = l.UnitPrice * l.Quantity,
+                    comboInstanceId = l.ComboInstanceId,
+                    comboName = l.ComboName,
                     modifiers = modifiers
                         .Where(m => m.OrderLineId == l.Id)
                         .Select(m => new { name = m.Name, priceDelta = m.PriceDelta }),
@@ -1146,6 +1282,14 @@ internal static class OrderEndpoints
         return app;
     }
 
+    private static object ComboExpansionResponse(List<OrderLine> lines, int rowVersion) => new
+    {
+        comboInstanceId = lines[0].ComboInstanceId,
+        comboName = lines[0].ComboName,
+        lines = lines.Select(l => new { lineId = l.Id, itemId = l.ItemId, sequence = l.Sequence, unitPrice = l.UnitPrice }),
+        rowVersion,
+    };
+
     private static byte[] BuildReceiptBytes(Order order, BranchSettings branchSettings, List<OrderLine> lines, List<OrderLineModifier> modifiers, DateTime? closedAt)
     {
         var encoding = Encoding.UTF8;
@@ -1166,13 +1310,24 @@ internal static class OrderEndpoints
         Ws($"Date: {closedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A"}");
         Ws(new string('-', 32));
 
+        Guid? printedComboInstance = null;
         foreach (var line in lines.Where(l => l.Status != OrderLineStatus.Voided))
         {
+            // Head each run of combo lines with the combo's name. Without it the components
+            // carry an allocated share of the bundle price and the customer reads a burger at
+            // 3.34 with nothing to explain it.
+            if (line.ComboInstanceId != printedComboInstance)
+            {
+                if (line.ComboInstanceId is not null) Ws($"{line.ComboName}");
+                printedComboInstance = line.ComboInstanceId;
+            }
+
             var lineTotal = line.UnitPrice * line.Quantity;
-            Ws($"{line.Quantity}x {line.ItemId} ... {lineTotal:F2}");
+            var indent = line.ComboInstanceId is null ? string.Empty : "  ";
+            Ws($"{indent}{line.Quantity}x {line.ItemId} ... {lineTotal:F2}");
             foreach (var mod in modifiers.Where(m => m.OrderLineId == line.Id))
             {
-                Ws($"  + {mod.Name} {mod.PriceDelta:F2}");
+                Ws($"{indent}  + {mod.Name} {mod.PriceDelta:F2}");
             }
         }
 
@@ -1230,6 +1385,12 @@ internal sealed record FireBatchRequest(int RowVersion);
 internal sealed record CreateDineInOrderRequest(Guid? OrderId);
 internal sealed record CreateTakeawayOrderRequest(string? CustomerName, Guid? OrderId = null);
 internal sealed record AddDraftLineRequest(Guid MenuItemId, int Quantity, List<Guid> ModifierIds, int RowVersion, Guid? LineId = null);
+/// <param name="ComboInstanceId">
+/// Client-supplied idempotency key. A combo becomes several lines, so there is no single line id
+/// to replay on; this identifies the expansion instead. One combo per call — order two by calling
+/// twice with two instance ids.
+/// </param>
+internal sealed record AddComboRequest(Guid ComboId, int RowVersion, Guid? ComboInstanceId = null);
 internal sealed record UpdateDraftLineRequest(int Quantity, List<Guid> ModifierIds, int RowVersion);
 
 internal sealed record VoidLineRequest(string Reason, int RowVersion);

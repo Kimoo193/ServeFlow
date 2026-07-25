@@ -35,6 +35,14 @@ public sealed class OrderLineConfiguration : IEntityTypeConfiguration<OrderLine>
             .HasConversion<string>()
             .HasMaxLength(20);
 
+        // Combo provenance. No foreign key to Combo on purpose: these are snapshots of an
+        // expansion that already happened, so a retired combo must still be deletable.
+        builder.Property(ol => ol.ComboId).HasColumnName("combo_id");
+        builder.Property(ol => ol.ComboInstanceId).HasColumnName("combo_instance_id");
+        builder.Property(ol => ol.ComboName)
+            .HasColumnName("combo_name")
+            .HasMaxLength(200);
+
         builder.HasOne<Tenant>()
             .WithMany()
             .HasForeignKey(ol => ol.TenantId)
@@ -59,5 +67,8 @@ public sealed class OrderLineConfiguration : IEntityTypeConfiguration<OrderLine>
         builder.HasIndex(ol => ol.OrderId);
         builder.HasIndex(ol => ol.ItemId);
         builder.HasIndex(ol => ol.StationId);
+
+        // Serves the idempotent-replay lookup on combo expansion.
+        builder.HasIndex(ol => new { ol.TenantId, ol.ComboInstanceId });
     }
 }

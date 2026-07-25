@@ -527,6 +527,19 @@ namespace Pos.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("ComboId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("combo_id");
+
+                    b.Property<Guid?>("ComboInstanceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("combo_instance_id");
+
+                    b.Property<string>("ComboName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("combo_name");
+
                     b.Property<Guid?>("FireBatchId")
                         .HasColumnType("uuid")
                         .HasColumnName("fire_batch_id");
@@ -574,6 +587,8 @@ namespace Pos.Infrastructure.Persistence.Migrations
                     b.HasIndex("StationId");
 
                     b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "ComboInstanceId");
 
                     b.ToTable("order_lines", (string)null);
                 });
