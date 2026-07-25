@@ -1,19 +1,39 @@
-/* Service Spruce tokens are the single source of truth, shared across apps. */
+/* Design tokens are the single source of truth, shared across apps. */
 @import '../../shared/src/design/service-spruce.css';
 @import '../../shared/src/design/ui.css';
 
-/* The KDS is a dark wall screen: remap the kit's neutral role variables to the
-   dark KDS tokens so the shared primitives (fields, buttons, cards, banners)
-   render on dark. Brand + status hues carry over unchanged. The signature board
-   and ticket cards are intentionally bespoke and don't use the generic kit. */
+/* The KDS is a dark wall screen. Rather than fork the kit, remap the neutral
+   *role* variables to the dark KDS tokens — every shared primitive (fields,
+   buttons, cards, tabs, banners, skeletons, empty states) then renders on dark
+   with no duplicated rules. Brand cyan opens up so it still reads at distance.
+   The signature board and ticket cards stay bespoke; they don't use the kit. */
 :root {
-  --sf-surface:   var(--sf-kds-panel);
-  --sf-surface-2: var(--sf-kds-panel-2);
-  --sf-ink:       var(--sf-kds-text);
-  --sf-muted:     var(--sf-kds-text-dim);
-  --sf-muted-2:   #B7C4C9;
-  --sf-hair:      var(--sf-kds-line);
-  --sf-hair-2:    #35474F;
+  --sf-page:       var(--sf-kds-bg);
+  --sf-surface:    var(--sf-kds-panel);
+  --sf-surface-2:  var(--sf-kds-panel);
+  --sf-surface-3:  var(--sf-kds-panel-2);
+  --sf-ink:        var(--sf-kds-text);
+  --sf-ink-2:      var(--sf-kds-text-dim);
+  --sf-muted:      var(--sf-kds-text-dim);
+  --sf-muted-2:    var(--sf-kds-text-dim);
+  --sf-faint:      var(--sf-kds-text-faint);
+  --sf-hair:       var(--sf-kds-line);
+  --sf-hair-2:     var(--sf-kds-line-2);
+  --sf-cyan:       var(--sf-cyan-bright);
+  --sf-cyan-deep:  var(--sf-cyan-dim);
+  --sf-cyan-tint:  rgba(56, 166, 207, 0.18);
+  --sf-shadow:     none;
+
+  /* The state hues open up too. The shared STATUS_COLOR_VAR map (and so the
+     ticket spine) resolves var(--sf-fired) & co., so remapping them here is
+     all it takes for the board to speak the brighter dark-surface dialect —
+     no fork of the domain colour map, no per-component overrides. */
+  --sf-fired:      var(--sf-kds-fired);
+  --sf-preparing:  var(--sf-kds-preparing);
+  --sf-ready:      var(--sf-kds-ready);
+  --sf-voided:     var(--sf-kds-voided);
+  --sf-draft:      var(--sf-kds-text-faint);
+  --sf-served:     var(--sf-kds-text-dim);
 }
 
 html, body {

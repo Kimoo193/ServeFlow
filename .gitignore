@@ -20,3 +20,7 @@ Thumbs.db
 
 # Claude Code harness-local state (not project source)
 .claude/
+
+# Browser-automation screenshot/snapshot artifacts from local UI verification
+.playwright-mcp/
+*.png

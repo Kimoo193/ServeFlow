@@ -5,7 +5,11 @@
 >
   <header class="head">
     <span class="order">#{{ shortOrder() }}</span>
-    <span class="batch">batch {{ shortBatch() }}</span>
+    @if (ticket().isNew) {
+      <span class="new-tag">NEW</span>
+    } @else {
+      <span class="batch">batch {{ shortBatch() }}</span>
+    }
     <span class="timer sf-mono" [attr.data-heat]="heat()">{{ clock() }}</span>
   </header>
 

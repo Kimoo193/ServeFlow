@@ -4,7 +4,7 @@
 .toolbar { margin-block-end: 16px; }
 
 .combo-list { display: flex; flex-direction: column; gap: 10px; }
-.combo-card { background: var(--sf-surface); border: 1px solid var(--sf-hair); border-radius: var(--sf-radius); box-shadow: var(--sf-shadow-sm); padding: 16px; }
+.combo-card { background: var(--sf-surface); border: 1px solid var(--sf-hair); border-radius: var(--sf-radius); box-shadow: var(--sf-shadow); padding: 16px; }
 .combo-header { display: flex; align-items: center; gap: 12px; }
 .combo-name { font-weight: 700; font-size: var(--fs-md); color: var(--sf-ink); }
 .combo-price { font-family: var(--sf-font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-base); color: var(--sf-muted-2); }
@@ -21,7 +21,7 @@
 }
 .items-label { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--sf-muted); }
 .combo-item-row { display: flex; align-items: center; gap: 8px; }
-.combo-item-qty { font-family: var(--sf-font-mono); color: var(--sf-spruce); font-weight: 700; min-inline-size: 24px; }
+.combo-item-qty { font-family: var(--sf-font-mono); color: var(--sf-cyan); font-weight: 700; min-inline-size: 24px; }
 .combo-item-name { color: var(--sf-ink); }
 .combo-item-row .btn { margin-inline-start: auto; }
 
@@ -37,7 +37,7 @@
 }
 .attach-form select { min-inline-size: 180px; }
 .attach-form input { inline-size: 72px; }
-.attach-form select:focus, .attach-form input:focus { border-color: var(--sf-spruce); outline: none; box-shadow: 0 0 0 3px rgba(52,216,180,0.22); }
+.attach-form select:focus, .attach-form input:focus { border-color: var(--sf-cyan); outline: none; box-shadow: 0 0 0 3px var(--sf-cyan-tint); }
 
 .inline-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
 .inline-form label { display: flex; flex-direction: column; gap: 5px; font-size: var(--fs-sm); font-weight: 600; color: var(--sf-muted-2); }
@@ -50,7 +50,7 @@
   color: var(--sf-ink);
   min-inline-size: 140px;
 }
-.inline-form input:focus { border-color: var(--sf-spruce); outline: none; box-shadow: 0 0 0 3px rgba(52,216,180,0.22); }
+.inline-form input:focus { border-color: var(--sf-cyan); outline: none; box-shadow: 0 0 0 3px var(--sf-cyan-tint); }
 
 .form-actions { display: flex; gap: 6px; align-items: center; }
 .confirm-group { display: inline-flex; gap: 4px; }

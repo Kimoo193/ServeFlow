@@ -4,26 +4,22 @@
 
 .toolbar { margin-block-end: 16px; }
 
-.cat-list { display: flex; flex-direction: column; gap: 12px; }
+.cat-list { display: flex; flex-direction: column; gap: 28px; }
 
-.cat-card { background: var(--sf-surface); border: 1px solid var(--sf-hair); border-radius: var(--sf-radius); box-shadow: var(--sf-shadow-sm); padding: 16px; }
-.cat-header { display: flex; align-items: center; gap: 12px; }
-.cat-name { font-weight: 700; font-size: var(--fs-md); color: var(--sf-ink); }
-.cat-order { font-size: var(--fs-xs); color: var(--sf-muted); font-family: var(--sf-font-mono); }
+.cat-card { display: flex; flex-direction: column; }
+.cat-header { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-block-end: 1px solid var(--sf-hair-2); }
+.cat-name { font-weight: 700; font-size: 20px; color: var(--sf-ink); }
+.cat-order { font-size: 12px; color: var(--sf-faint); font-family: var(--sf-font-mono); }
 .cat-actions { margin-inline-start: auto; display: flex; gap: 6px; }
 
 .items-section {
-  margin-block-start: 12px;
-  padding-inline-start: 16px;
-  border-inline-start: 2px solid var(--sf-hair);
   display: flex;
   flex-direction: column;
-  gap: 6px;
 }
-.item-row { padding: 8px 0; }
-.item-info { display: flex; align-items: center; gap: 12px; font-size: var(--fs-base); }
-.item-name { font-weight: 600; color: var(--sf-ink); }
-.item-price { font-family: var(--sf-font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-sm); color: var(--sf-muted-2); }
+.item-row { padding: 12px 0; border-block-end: 1px solid var(--sf-hair); }
+.item-info { display: flex; align-items: center; gap: 14px; font-size: var(--fs-md); }
+.item-name { flex: 1; color: var(--sf-ink); }
+.item-price { font-family: var(--sf-font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-base); color: var(--sf-ink); }
 .item-avail { display: flex; align-items: center; gap: 4px; font-size: var(--fs-sm); }
 
 .avail-select {
@@ -35,15 +31,15 @@
   background: var(--sf-surface);
   color: var(--sf-ink);
 }
-.avail-select:focus { outline: none; border-color: var(--sf-spruce); box-shadow: 0 0 0 3px rgba(52,216,180,0.22); }
+.avail-select:focus { outline: none; border-color: var(--sf-cyan); box-shadow: 0 0 0 3px var(--sf-cyan-tint); }
 
 .item-actions { margin-inline-start: auto; display: flex; gap: 6px; }
 
 .item-groups { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-block-start: 6px; font-size: var(--fs-sm); }
 .groups-label { color: var(--sf-muted); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.06em; }
-.group-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; background: rgba(15,95,82,0.06); border: 1px solid rgba(15,95,82,0.14); border-radius: 999px; font-size: var(--fs-xs); font-weight: 600; color: var(--sf-spruce-deep); }
+.group-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; background: var(--sf-cyan-tint); border: 1px solid rgba(0,136,176,0.28); border-radius: var(--sf-radius-sm); font-size: var(--fs-xs); font-weight: 600; color: var(--sf-cyan-deep); }
 .tag-detach { background: none; border: none; cursor: pointer; font-size: 14px; color: var(--sf-voided); padding: 0 2px; line-height: 1; }
-.tag-detach:hover { background: rgba(239,68,68,0.1); border-radius: 50%; }
+.tag-detach:hover { background: var(--sf-voided-tint); border-radius: 50%; }
 .tag-confirm { background: var(--sf-voided); color: #fff; border: none; border-radius: 4px; padding: 2px 6px; font-size: 10px; cursor: pointer; }
 .tag-cancel { background: none; border: none; cursor: pointer; font-size: 12px; color: var(--sf-muted); }
 
@@ -64,7 +60,7 @@
   color: var(--sf-ink);
   min-inline-size: 140px;
 }
-.inline-form input:focus, .inline-form select:focus { border-color: var(--sf-spruce); outline: none; box-shadow: 0 0 0 3px rgba(52,216,180,0.22); }
+.inline-form input:focus, .inline-form select:focus { border-color: var(--sf-cyan); outline: none; box-shadow: 0 0 0 3px var(--sf-cyan-tint); }
 
 .form-actions { display: flex; gap: 6px; align-items: center; }
 .confirm-group { display: inline-flex; gap: 4px; }

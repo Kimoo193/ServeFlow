@@ -71,10 +71,10 @@
             <div class="section-header">
               <span class="section-name">{{ sec.name }}</span>
               <div class="section-actions">
-                <button class="btn btn-sm" (click)="startEditSection(sec)">Edit</button>
+                <button class="btn btn-sm btn-ghost" (click)="startEditSection(sec)">Edit</button>
                 @if (confirming()?.type === 'section' && confirming()?.id === sec.id) {
                   <span class="confirm-group">
-                    <button class="btn btn-sm btn-danger" (click)="executeDeleteSection(sec.id)" [disabled]="busy()">Confirm</button>
+                    <button class="btn btn-sm btn-danger-solid" (click)="executeDeleteSection(sec.id)" [disabled]="busy()">Confirm</button>
                     <button class="btn btn-sm btn-ghost" (click)="cancelConfirm()">Cancel</button>
                   </span>
                 } @else {
@@ -109,10 +109,10 @@
                     <span class="table-label">{{ t.label }}</span>
                     <span class="badge" [class.badge--warn]="t.status === 'Occupied'" [class.badge--ready]="t.status !== 'Occupied'">{{ t.status }}</span>
                     <div class="table-actions">
-                      <button class="btn btn-sm" (click)="startEditTable(t)">Edit</button>
+                      <button class="btn btn-sm btn-ghost" (click)="startEditTable(t)">Edit</button>
                       @if (confirming()?.type === 'table' && confirming()?.id === t.id) {
                         <span class="confirm-group">
-                          <button class="btn btn-sm btn-danger" (click)="executeDeleteTable(t.id)" [disabled]="busy()">Confirm</button>
+                          <button class="btn btn-sm btn-danger-solid" (click)="executeDeleteTable(t.id)" [disabled]="busy()">Confirm</button>
                           <button class="btn btn-sm btn-ghost" (click)="cancelConfirm()">Cancel</button>
                         </span>
                       } @else {
@@ -171,10 +171,10 @@
           } @else {
             <span class="station-name">{{ st.name }}</span>
             <div class="station-actions">
-              <button class="btn btn-sm" (click)="startEditStation(st)">Edit</button>
+              <button class="btn btn-sm btn-ghost" (click)="startEditStation(st)">Edit</button>
               @if (confirming()?.type === 'station' && confirming()?.id === st.id) {
                 <span class="confirm-group">
-                  <button class="btn btn-sm btn-danger" (click)="executeDeleteStation(st.id)" [disabled]="busy()">Confirm</button>
+                  <button class="btn btn-sm btn-danger-solid" (click)="executeDeleteStation(st.id)" [disabled]="busy()">Confirm</button>
                   <button class="btn btn-sm btn-ghost" (click)="cancelConfirm()">Cancel</button>
                 </span>
               } @else {

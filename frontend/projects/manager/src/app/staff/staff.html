@@ -87,16 +87,16 @@
             <div class="user-info">
               <span class="user-name">{{ user.displayName }}</span>
               <span class="user-role">{{ user.role }}</span>
-              <span class="badge" [class.badge--active]="user.isActive" [class.badge--inactive]="!user.isActive">
-                {{ user.isActive ? 'Active' : 'Inactive' }}
-              </span>
             </div>
+            <span class="badge" [class.badge--active]="user.isActive" [class.badge--inactive]="!user.isActive">
+              {{ user.isActive ? 'Active' : 'Inactive' }}
+            </span>
             <div class="user-actions">
               <button class="btn btn-ghost btn-sm" (click)="startEdit(user)">Edit</button>
               @if (user.isActive) {
                 @if (confirmingUserId() === user.id) {
                   <span class="confirm-group">
-                    <button class="btn btn-danger btn-sm" (click)="confirmDeactivate()">Confirm</button>
+                    <button class="btn btn-danger-solid btn-sm" (click)="confirmDeactivate()">Confirm</button>
                     <button class="btn btn-ghost btn-sm" (click)="cancelDeactivate()">Cancel</button>
                   </span>
                 } @else {

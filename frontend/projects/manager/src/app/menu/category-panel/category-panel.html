@@ -46,10 +46,10 @@
           <span class="cat-name">{{ cat.name }}</span>
           <span class="cat-order">#{{ cat.sortOrder }}</span>
           <div class="cat-actions">
-            <button class="btn btn-sm" (click)="startEditCategory(cat)">Edit</button>
+            <button class="btn btn-sm btn-ghost" (click)="startEditCategory(cat)">Edit</button>
             @if (confirming()?.type === 'category' && confirming()?.id === cat.id) {
               <span class="confirm-group">
-                <button class="btn btn-sm btn-danger" (click)="executeDeleteCategory(cat.id)" [disabled]="busy()">Confirm</button>
+                <button class="btn btn-sm btn-danger-solid" (click)="executeDeleteCategory(cat.id)" [disabled]="busy()">Confirm</button>
                 <button class="btn btn-sm btn-ghost" (click)="cancelConfirm()">Cancel</button>
               </span>
             } @else {
@@ -105,10 +105,10 @@
                     </select>
                   </span>
                   <div class="item-actions">
-                    <button class="btn btn-sm" (click)="startEditItem(item, cat.id)">Edit</button>
+                    <button class="btn btn-sm btn-ghost" (click)="startEditItem(item, cat.id)">Edit</button>
                     @if (confirming()?.type === 'item' && confirming()?.id === item.id) {
                       <span class="confirm-group">
-                        <button class="btn btn-sm btn-danger" (click)="executeDeleteItem(item.id)" [disabled]="busy()">Confirm</button>
+                        <button class="btn btn-sm btn-danger-solid" (click)="executeDeleteItem(item.id)" [disabled]="busy()">Confirm</button>
                         <button class="btn btn-sm btn-ghost" (click)="cancelConfirm()">Cancel</button>
                       </span>
                     } @else {
@@ -118,7 +118,9 @@
                 </div>
 
                 <div class="item-groups">
-                  <span class="groups-label">Modifier groups:</span>
+                  @if (item.modifierGroups.length) {
+                    <span class="groups-label">Modifier groups:</span>
+                  }
                   @for (g of item.modifierGroups; track g.id) {
                     <span class="group-tag">
                       {{ g.name }}

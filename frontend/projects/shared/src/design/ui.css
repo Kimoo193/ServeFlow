@@ -1,34 +1,13 @@
 /* ============================================================================
-   Service Spruce — shared UI kit (LIGHT surfaces: Cashier / Manager)
+   ServeFlow — shared UI kit
    One component vocabulary, defined once, used on every surface. Import AFTER
    service-spruce.css. Classes are global (unscoped) so the same button, field,
    card, badge, table, banner, skeleton and empty-state render identically
-   across all features. Built entirely on the design tokens.
+   across all three apps. Built entirely on the design tokens — no literals.
+
+   The KDS remaps the neutral role variables to its dark tokens (see the KDS
+   styles.css), so every primitive below renders on the wall screen unchanged.
    ============================================================================ */
-
-:root {
-  /* Fixed rem type scale (product register: fixed, not fluid; ratio ~1.2) */
-  --fs-xs:   0.75rem;   /* 12 — meta, table headers */
-  --fs-sm:   0.8125rem; /* 13 — secondary / dense labels */
-  --fs-base: 0.875rem;  /* 14 — body / controls */
-  --fs-md:   1rem;      /* 16 — emphasis */
-  --fs-lg:   1.25rem;   /* 20 — section titles */
-  --fs-xl:   1.75rem;   /* 28 — page titles */
-  --fs-2xl:  2.625rem;  /* 42 — stat numbers */
-
-  /* Neutral ramp derived from ink/porcelain — for borders & muted text with
-     verified AA contrast on white. */
-  --sf-hair:    rgba(15, 95, 82, 0.10);  /* spruce-tinted hairline */
-  --sf-hair-2:  rgba(15, 95, 82, 0.16);
-  --sf-muted:   #5A6B66;                 /* = served; AA on white (4.9:1) */
-  --sf-muted-2: #46534E;                 /* stronger muted, AA large+small  */
-  --sf-surface: #FFFFFF;
-  --sf-surface-2: #FBFAF8;               /* faint panel, distinct from porcelain */
-
-  --sf-shadow-sm: 0 1px 2px rgba(26, 36, 32, 0.05);
-  --sf-shadow:    0 4px 16px rgba(26, 36, 32, 0.08);
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-}
 
 /* ---- Page scaffold -------------------------------------------------------- */
 .page-head {
@@ -36,17 +15,22 @@
   align-items: baseline;
   gap: 12px;
   flex-wrap: wrap;
-  margin-block-end: 20px;
+  margin-block-end: 24px;
 }
 .page-title {
   margin: 0;
-  font-size: var(--fs-xl);
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.015em;
   color: var(--sf-ink);
   text-wrap: balance;
 }
-.page-sub { margin: 0; color: var(--sf-muted); font-size: var(--fs-base); }
+.page-sub {
+  margin: 0;
+  font-family: var(--sf-font-mono);
+  font-size: var(--fs-sm);
+  color: var(--sf-muted-2);
+}
 
 .section-head {
   display: flex;
@@ -57,191 +41,279 @@
 }
 .section-title {
   margin: 0;
-  font-size: var(--fs-lg);
+  font-size: var(--fs-xl);
   font-weight: 700;
-  letter-spacing: -0.01em;
   color: var(--sf-ink);
+}
+
+/* A mono, letter-spaced, cyan label. Names a region without shouting — the
+   quiet counterpart to a heading. */
+.eyebrow {
+  font-family: var(--sf-font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sf-cyan);
 }
 
 /* ---- Buttons -------------------------------------------------------------- */
 .btn {
-  --_bg: var(--sf-surface);
+  --_bg: transparent;
   --_fg: var(--sf-ink);
   --_bd: var(--sf-hair-2);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 9px 14px;
+  padding: 9px 18px;
   border: 1px solid var(--_bd);
   border-radius: var(--sf-radius-sm);
   background: var(--_bg);
   color: var(--_fg);
-  font: inherit;
+  font-family: inherit;
   font-size: var(--fs-base);
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.2;
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.15s var(--ease-out), border-color 0.15s var(--ease-out),
-              color 0.15s var(--ease-out), transform 0.06s var(--ease-out);
+              color 0.15s var(--ease-out);
 }
-.btn:hover { background: var(--sf-surface-2); border-color: var(--sf-spruce); color: var(--sf-spruce); }
-.btn:active { transform: translateY(1px); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn:hover:not(:disabled) { border-color: var(--sf-cyan); color: var(--sf-cyan); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-.btn-primary { --_bg: var(--sf-spruce); --_fg: #fff; --_bd: var(--sf-spruce); }
-.btn-primary:hover { --_bg: var(--sf-spruce-deep); --_fg: #fff; --_bd: var(--sf-spruce-deep); }
+.btn-primary { --_bg: var(--sf-cyan); --_fg: var(--sf-surface); --_bd: var(--sf-cyan); font-weight: 700; }
+.btn-primary:hover:not(:disabled) { --_bg: var(--sf-cyan-deep); --_fg: var(--sf-surface); --_bd: var(--sf-cyan-deep); }
 
-.btn-ghost { --_bd: transparent; --_bg: transparent; --_fg: var(--sf-muted-2); }
-.btn-ghost:hover { --_bg: rgba(15, 95, 82, 0.07); --_fg: var(--sf-spruce); border-color: transparent; }
+.btn-ghost { --_bd: transparent; --_bg: transparent; --_fg: var(--sf-cyan); padding-inline: 8px; }
+.btn-ghost:hover:not(:disabled) { --_bg: var(--sf-cyan-tint); --_fg: var(--sf-cyan-deep); border-color: transparent; }
 
-.btn-danger { --_bg: transparent; --_fg: var(--sf-voided); --_bd: rgba(239, 68, 68, 0.28); }
-.btn-danger:hover { --_bg: rgba(239, 68, 68, 0.09); --_fg: var(--sf-voided); --_bd: var(--sf-voided); }
+/* Quiet by default: a row-level "Delete" should not out-shout the row. */
+.btn-danger { --_bd: transparent; --_bg: transparent; --_fg: var(--sf-voided); padding-inline: 8px; }
+.btn-danger:hover:not(:disabled) { --_bg: var(--sf-voided-tint); --_fg: var(--sf-voided); border-color: transparent; }
 
-.btn-sm { padding: 6px 10px; font-size: var(--fs-sm); }
+/* Loud on purpose: this is the irreversible confirm. */
+.btn-danger-solid { --_bg: var(--sf-voided); --_fg: var(--sf-surface); --_bd: var(--sf-voided); font-weight: 700; }
+.btn-danger-solid:hover:not(:disabled) { --_bg: #8f1e18; --_fg: var(--sf-surface); --_bd: #8f1e18; }
+
+.btn-sm { padding: 6px 12px; font-size: var(--fs-sm); }
 
 /* ---- Form controls -------------------------------------------------------- */
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field-label,
 label.field-label {
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--sf-muted-2);
+  font-size: 0.75rem;
+  color: var(--sf-muted);
 }
 .input, .select {
-  padding: 9px 11px;
+  min-block-size: 38px;
+  padding: 7px 11px;
   border: 1px solid var(--sf-hair-2);
   border-radius: var(--sf-radius-sm);
-  background: var(--sf-surface);
+  background: var(--sf-surface-2);
   color: var(--sf-ink);
-  font: inherit;
+  font-family: inherit;
   font-size: var(--fs-base);
   transition: border-color 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out);
 }
-.input::placeholder { color: var(--sf-muted); }
+.input::placeholder { color: var(--sf-faint); }
 .input:focus, .select:focus {
   outline: none;
-  border-color: var(--sf-spruce);
-  box-shadow: 0 0 0 3px rgba(52, 216, 180, 0.22);
+  border-color: var(--sf-cyan);
+  box-shadow: 0 0 0 3px var(--sf-cyan-tint);
 }
-.input:disabled, .select:disabled { background: var(--sf-surface-2); color: var(--sf-muted); }
+.input:disabled, .select:disabled { opacity: 0.6; cursor: not-allowed; }
+.mono-input { font-family: var(--sf-font-mono); }
+
+/* ---- Tabs (segmented control) --------------------------------------------- */
+.tabs {
+  display: inline-flex;
+  align-self: flex-start;
+  border: 1px solid var(--sf-hair-2);
+  border-radius: var(--sf-radius-sm);
+  overflow: hidden;
+}
+.tabs button {
+  padding: 9px 16px;
+  border: 0;
+  border-inline-start: 1px solid var(--sf-hair-2);
+  background: transparent;
+  color: var(--sf-ink-2);
+  font-family: inherit;
+  font-size: var(--fs-base);
+  cursor: pointer;
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out);
+}
+.tabs button:first-child { border-inline-start: 0; }
+.tabs button:hover:not(.active) { background: var(--sf-cyan-tint); color: var(--sf-cyan-deep); }
+.tabs button.active { background: var(--sf-cyan); color: var(--sf-surface); font-weight: 600; }
 
 /* ---- Card ----------------------------------------------------------------- */
+/* Default is the inset card — the tile inside a panel, which is the common
+   case (stat tiles, order cards, staff rows, inline forms). */
 .card {
-  background: var(--sf-surface);
-  border: 1px solid var(--sf-hair);
+  background: var(--sf-surface-2);
   border-radius: var(--sf-radius);
-  box-shadow: var(--sf-shadow-sm);
+}
+/* The panel itself: lifted off the desk. */
+.card--raised {
+  background: var(--sf-surface);
+  box-shadow: var(--sf-shadow);
 }
 
-/* ---- Badges (status uses the state-machine tokens) ------------------------ */
+/* ---- Badges ---------------------------------------------------------------
+   A tinted chip whose square pip carries the state color; the label stays ink
+   so contrast never depends on the hue. Reads at a glance, survives a bad
+   projector, and keeps one meaning per color across all three apps. */
 .badge {
+  --_dot: var(--sf-draft);
+  --_bg: var(--sf-draft-tint);
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 9px;
-  border-radius: 999px;
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  line-height: 1.4;
-  background: rgba(90, 107, 102, 0.12);
-  color: var(--sf-muted-2);
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: var(--sf-radius-sm);
+  background: var(--_bg);
+  color: var(--sf-ink);
+  font-size: 0.78rem;
+  line-height: 1.3;
   white-space: nowrap;
 }
 .badge::before {
   content: "";
-  inline-size: 6px; block-size: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.9;
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 2px;
+  background: var(--_dot);
+  flex: none;
 }
-.badge--muted   { background: rgba(138, 151, 160, 0.16); color: #566169; }
-.badge--active  { background: rgba(47, 191, 113, 0.15);  color: #1c7a48; }   /* AA on white */
-.badge--inactive{ background: rgba(138, 151, 160, 0.16); color: #566169; }
-.badge--ok      { background: rgba(47, 191, 113, 0.15);  color: #1c7a48; }
-.badge--warn    { background: rgba(245, 165, 36, 0.18);  color: #8a5a06; }
-.badge--danger  { background: rgba(239, 68, 68, 0.13);   color: #b3261e; }
-/* OrderLine states */
-.badge--draft    { background: rgba(138,151,160,0.16); color:#566169; }
-.badge--fired    { background: rgba(91,141,239,0.16);  color:#2f57b0; }
-.badge--preparing{ background: rgba(245,165,36,0.18);  color:#8a5a06; }
-.badge--ready    { background: rgba(47,191,113,0.15);  color:#1c7a48; }
-.badge--served   { background: rgba(90,107,102,0.14);  color:#46534e; }
-.badge--voided   { background: rgba(239,68,68,0.13);   color:#b3261e; }
+
+/* The six OrderLine states — the lifecycle, in order. */
+.badge--draft     { --_dot: var(--sf-draft);     --_bg: var(--sf-draft-tint); }
+.badge--fired     { --_dot: var(--sf-fired);     --_bg: var(--sf-fired-tint); }
+.badge--preparing { --_dot: var(--sf-preparing); --_bg: var(--sf-preparing-tint); }
+.badge--ready     { --_dot: var(--sf-ready);     --_bg: var(--sf-ready-tint); }
+.badge--served    { --_dot: var(--sf-served);    --_bg: var(--sf-served-tint); color: var(--sf-muted); }
+.badge--voided    { --_dot: var(--sf-voided);    --_bg: var(--sf-voided-tint); }
+
+/* Semantic aliases so callers can say what they mean. */
+.badge--ok       { --_dot: var(--sf-ready);     --_bg: var(--sf-ready-tint); }
+.badge--warn     { --_dot: var(--sf-preparing); --_bg: var(--sf-preparing-tint); }
+.badge--danger   { --_dot: var(--sf-voided);    --_bg: var(--sf-voided-tint); }
+.badge--active   { --_dot: var(--sf-ready);     --_bg: var(--sf-ready-tint); }
+.badge--inactive { --_dot: var(--sf-served);    --_bg: var(--sf-served-tint); color: var(--sf-muted); }
+
+/* Identity, not state — so it takes the brand ink and drops the pip. */
+.badge--muted {
+  background: var(--sf-cyan-tint);
+  color: var(--sf-cyan-deep);
+  font-family: var(--sf-font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+}
+.badge--muted::before { display: none; }
 
 /* ---- Data table ----------------------------------------------------------- */
-.data-table-wrap { overflow-x: auto; border: 1px solid var(--sf-hair); border-radius: var(--sf-radius); background: var(--sf-surface); }
+.data-table-wrap { overflow-x: auto; }
 .data-table { inline-size: 100%; border-collapse: collapse; font-size: var(--fs-base); }
 .data-table thead th {
   text-align: start;
-  padding: 11px 14px;
+  padding: 10px;
+  font-family: var(--sf-font-mono);
   font-size: var(--fs-xs);
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--sf-muted);
-  background: var(--sf-surface-2);
-  border-block-end: 1px solid var(--sf-hair);
-  position: sticky; top: 0;
+  color: var(--sf-muted-2);
+  border-block-end: 1px solid var(--sf-hair-2);
+  white-space: nowrap;
 }
-.data-table tbody td { padding: 12px 14px; border-block-end: 1px solid var(--sf-hair); color: var(--sf-ink); }
-.data-table tbody tr:last-child td { border-block-end: none; }
+.data-table tbody td {
+  padding: 11px 10px;
+  border-block-end: 1px solid var(--sf-hair);
+  color: var(--sf-ink);
+}
 .data-table tbody tr { transition: background 0.12s var(--ease-out); }
 .data-table tbody tr:hover { background: var(--sf-surface-2); }
-.data-table .num { font-family: var(--sf-font-mono); font-variant-numeric: tabular-nums; text-align: end; }
+.data-table .num,
+.data-table th.num { font-family: var(--sf-font-mono); font-variant-numeric: tabular-nums; text-align: end; }
 
 /* ---- Banner (inline, non-modal) ------------------------------------------ */
 .banner {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
+  gap: 12px;
+  padding: 11px 14px;
   margin-block-end: 16px;
   border-radius: var(--sf-radius-sm);
-  font-size: var(--fs-base);
-  border: 1px solid transparent;
+  font-size: var(--fs-sm);
+  color: var(--sf-ink);
+  background: var(--sf-draft-tint);
 }
-.banner--error { background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.22); color: #b3261e; }
-.banner--warn  { background: rgba(245, 165, 36, 0.10); border-color: rgba(245, 165, 36, 0.28); color: #8a5a06; }
-.banner--info  { background: rgba(91, 141, 239, 0.08); border-color: rgba(91, 141, 239, 0.22); color: #2f57b0; }
+.banner::before {
+  content: "";
+  inline-size: 9px;
+  block-size: 9px;
+  border-radius: 2px;
+  background: var(--sf-draft);
+  flex: none;
+}
+.banner--error::before { background: var(--sf-voided); }
+.banner--error { background: var(--sf-voided-tint); }
+.banner--warn::before  { background: var(--sf-preparing); }
+.banner--warn  { background: var(--sf-preparing-tint); }
+.banner--info::before  { background: var(--sf-cyan); }
+.banner--info  { background: var(--sf-cyan-tint); }
 .banner .banner-dismiss {
   margin-inline-start: auto;
   background: none; border: none; cursor: pointer;
-  font-size: 18px; line-height: 1; color: inherit; opacity: 0.7;
-  padding: 2px 6px; border-radius: 4px;
+  font-size: 16px; line-height: 1; color: var(--sf-muted-2);
+  padding: 2px 6px; border-radius: var(--sf-radius-sm);
 }
-.banner .banner-dismiss:hover { opacity: 1; background: rgba(0,0,0,0.06); }
+.banner .banner-dismiss:hover { color: var(--sf-ink); }
 
 /* ---- Skeleton loading ----------------------------------------------------- */
 .skeleton {
-  --_c1: rgba(15, 95, 82, 0.07);
-  --_c2: rgba(15, 95, 82, 0.13);
+  --_c1: var(--sf-surface-3);
+  --_c2: var(--sf-surface-2);
   border-radius: var(--sf-radius-sm);
   background: linear-gradient(90deg, var(--_c1) 25%, var(--_c2) 37%, var(--_c1) 63%);
   background-size: 400% 100%;
   animation: sf-shimmer 1.3s var(--ease-out) infinite;
 }
-.skeleton--line { block-size: 0.8em; margin-block: 0.35em; }
+.skeleton--line { block-size: 11px; margin-block: 0.35em; }
 .skeleton--tile { block-size: 96px; }
 @keyframes sf-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
 @media (prefers-reduced-motion: reduce) {
   .skeleton { animation: none; background: var(--_c1); }
 }
 
-/* ---- Empty state (teaches, not "nothing here") ---------------------------- */
+/* ---- Empty state ----------------------------------------------------------
+   Carries the lifecycle motif: three pips, waiting. An empty board is a state
+   of the system, not a hole in the page. */
 .empty {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 6px;
-  padding: 40px 24px;
-  border: 1px dashed var(--sf-hair-2);
+  align-items: flex-start;
+  gap: 12px;
+  padding: 30px;
   border-radius: var(--sf-radius);
   background: var(--sf-surface-2);
-  color: var(--sf-muted);
+  color: var(--sf-muted-2);
 }
-.empty-title { font-weight: 700; color: var(--sf-muted-2); font-size: var(--fs-md); }
-.empty-hint { font-size: var(--fs-base); max-inline-size: 42ch; }
+.empty::before {
+  content: "";
+  inline-size: 41px;
+  block-size: 11px;
+  background-image:
+    radial-gradient(circle 5.5px at 5.5px 5.5px,  var(--sf-faint) 99%, transparent 100%),
+    radial-gradient(circle 5.5px at 20.5px 5.5px, var(--sf-muted-2) 99%, transparent 100%),
+    radial-gradient(circle 5.5px at 35.5px 5.5px, var(--sf-muted) 99%, transparent 100%);
+  background-repeat: no-repeat;
+  flex: none;
+}
+.empty-title { font-weight: 700; color: var(--sf-ink); font-size: var(--fs-lg); }
+.empty-hint { font-size: var(--fs-sm); color: var(--sf-muted-2); max-inline-size: 46ch; }

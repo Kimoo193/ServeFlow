@@ -49,10 +49,10 @@
           <span class="combo-name">{{ c.name }}</span>
           <span class="combo-price">{{ c.price }}</span>
           <div class="combo-actions">
-            <button class="btn btn-sm" (click)="startEditCombo(c)">Edit</button>
+            <button class="btn btn-sm btn-ghost" (click)="startEditCombo(c)">Edit</button>
             @if (confirming()?.type === 'combo' && confirming()?.id === c.id) {
               <span class="confirm-group">
-                <button class="btn btn-sm btn-danger" (click)="executeDeleteCombo(c.id)" [disabled]="busy()">Confirm</button>
+                <button class="btn btn-sm btn-danger-solid" (click)="executeDeleteCombo(c.id)" [disabled]="busy()">Confirm</button>
                 <button class="btn btn-sm btn-ghost" (click)="cancelConfirm()">Cancel</button>
               </span>
             } @else {
@@ -69,7 +69,7 @@
               <span class="combo-item-name">{{ itemName(ci.itemId) }}</span>
               @if (isConfirmingItem(c.id, ci.itemId)) {
                 <span class="confirm-group">
-                  <button class="btn btn-sm btn-danger" (click)="executeDeleteItem(c.id, ci.itemId)" [disabled]="busy()">Confirm</button>
+                  <button class="btn btn-sm btn-danger-solid" (click)="executeDeleteItem(c.id, ci.itemId)" [disabled]="busy()">Confirm</button>
                   <button class="btn btn-sm btn-ghost" (click)="cancelConfirm()">Cancel</button>
                 </span>
               } @else {

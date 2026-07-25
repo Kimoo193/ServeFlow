@@ -2,37 +2,37 @@
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
   max-inline-size: 640px;
 }
 
 .stat-card {
-  padding: 22px 24px;
+  padding: 26px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-block-size: 128px;
-  justify-content: center;
+  gap: 8px;
+}
+
+/* Label first, number second: you read what it *is*, then how much. */
+.stat-label {
+  order: -1;
+  font-family: var(--sf-font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sf-cyan);
 }
 
 .stat-value {
-  font-size: var(--fs-2xl);
-  font-weight: 700;
+  font-size: 3.25rem;
+  font-weight: 600;
   line-height: 1;
-  color: var(--sf-spruce);
+  color: var(--sf-ink);
   letter-spacing: -0.02em;
 }
 
-.stat-label {
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--sf-muted-2);
-}
-
 .stat-note {
-  font-size: var(--fs-xs);
-  color: var(--sf-muted);
+  font-size: var(--fs-sm);
+  color: var(--sf-muted-2);
 }

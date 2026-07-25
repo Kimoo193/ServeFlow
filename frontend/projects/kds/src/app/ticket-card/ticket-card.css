@@ -3,96 +3,132 @@
 .ticket {
   --spine: var(--sf-fired);
   position: relative;
+  padding-inline-start: 8px;   /* the spine occupies this gutter */
   background: var(--sf-kds-panel);
-  border: 1px solid var(--sf-kds-line);
   border-radius: var(--sf-radius);
   overflow: hidden;
 }
 
-/* The signature: a thick status-coloured spine on the inline-start edge. */
+/* The signature: a thick status-coloured spine on the inline-start edge.
+   One glance across the board reads the whole kitchen's state. */
 .ticket::before {
   content: '';
   position: absolute;
   inset-block: 0;
   inset-inline-start: 0;
-  width: 8px;
+  inline-size: 8px;
   background: var(--spine);
 }
 
 .head {
   display: flex;
   align-items: baseline;
-  gap: 10px;
-  padding: 12px 14px 10px 20px;
-  border-bottom: 1px solid var(--sf-kds-line);
+  gap: 8px;
+  padding: 16px 16px 0;
 }
-.order { font-weight: 800; letter-spacing: -0.01em; font-size: 18px; }
+.order {
+  font-family: var(--sf-font-mono);
+  font-size: 16px;
+  font-weight: 600;
+}
 .batch {
-  font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
-  color: var(--sf-kds-text-dim);
+  font-family: var(--sf-font-mono);
+  font-size: 12px;
+  color: var(--sf-kds-text-faint);
 }
+
+/* Just fired and not yet touched — the loudest chip on the board. */
+.new-tag {
+  font-family: var(--sf-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: var(--sf-radius-sm);
+  background: var(--sf-kds-fired);
+  color: var(--sf-kds-bg);
+}
+
+/* The aging timer is an operational signal, not decoration: it cools cyan,
+   warms amber, then runs red. Colour alone, so it never obscures the digits. */
 .timer {
   margin-inline-start: auto;
-  font-size: 17px; font-weight: 500;
-  padding: 2px 8px; border-radius: 6px;
+  font-size: 18px;
 }
-.timer[data-heat='calm'] { color: var(--sf-kds-text-dim); }
-.timer[data-heat='warm'] { color: #10161A; background: var(--sf-preparing); }
-.timer[data-heat='hot'] {
-  color: #fff; background: var(--sf-voided);
-  animation: pulse-hot 1.4s ease-in-out infinite;
+.timer[data-heat='calm'] { color: var(--sf-cyan-dim); }
+.timer[data-heat='warm'] { color: var(--sf-kds-preparing); }
+.timer[data-heat='hot']  { color: var(--sf-kds-voided); font-weight: 600; }
+
+.lines {
+  list-style: none;
+  margin: 0;
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.lines { list-style: none; margin: 0; padding: 6px 0; }
-.line { padding: 8px 14px 8px 20px; }
-.line + .line { border-top: 1px solid rgba(255, 255, 255, 0.04); }
-
-.line-main { display: flex; align-items: center; gap: 10px; }
+.line-main { display: flex; align-items: center; gap: 12px; }
 .qty {
-  min-width: 34px; font-size: 18px; font-weight: 600;
-  color: var(--sf-mint);
+  inline-size: 26px;
+  flex: none;
+  font-size: 18px;
+  font-weight: 600;
 }
-.name { font-size: 17px; font-weight: 500; flex: 1; }
+.name { font-size: 17px; flex: 1; }
 
 .mods {
-  list-style: none; margin: 4px 0 0; padding-inline-start: 44px;
-  font-size: 13px; color: var(--sf-kds-text-dim);
+  list-style: none;
+  margin: 2px 0 0;
+  padding-inline-start: 38px;
+  font-size: 13px;
+  color: var(--sf-kds-text-dim);
 }
 
+/* Sized for a gloved hand moving fast, not for a mouse. */
 .act {
-  font: inherit; font-weight: 700; font-size: 13px;
-  padding: 7px 16px; border: none; border-radius: 999px; cursor: pointer;
-  color: #06231D;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 11px 22px;
+  border: 0;
+  border-radius: var(--sf-radius-sm);
+  cursor: pointer;
+  align-self: flex-start;
+  color: var(--sf-kds-bg);
 }
-.act.start { background: var(--sf-fired); color: #04122E; }
-.act.ready { background: var(--sf-ready); color: #04210F; }
+.act.start { background: var(--sf-kds-fired); }
+.act.ready { background: var(--sf-kds-ready); }
 .act:active { transform: translateY(1px); }
 
+/* A void must never vanish silently — the line dims, strikes through, and is
+   labelled, so the cook sees *why* the work stopped. */
+.line.voiding { opacity: 0.7; animation: void-flash 1400ms ease-out; }
+.line.voiding .qty { color: var(--sf-kds-voided); }
+.line.voiding .name { text-decoration: line-through; color: var(--sf-kds-text-dim); }
+
 .void-tag {
-  font-weight: 800; font-size: 12px; letter-spacing: 0.12em;
-  color: #fff; background: var(--sf-voided);
-  padding: 4px 10px; border-radius: 6px;
+  font-family: var(--sf-font-mono);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--sf-kds-voided);
+  background: rgba(255, 107, 94, 0.2);
+  padding: 5px 11px;
+  border-radius: var(--sf-radius-sm);
 }
 
-/* New ticket: one calm mint pulse of the spine + a soft rise-in. */
-.ticket.is-new { animation: rise-in 320ms ease-out; }
-.ticket.is-new::before { animation: spine-pulse 1200ms ease-out; }
-
-/* Void: the line flashes red, then the board collapses it out. */
-.line.voiding { animation: void-flash 1400ms ease-out; }
+/* New ticket: a ring in its own state colour plus a soft rise-in. */
+.ticket.is-new {
+  box-shadow: 0 0 0 2px var(--spine);
+  animation: rise-in 320ms ease-out;
+}
 
 @keyframes rise-in {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: none; }
 }
-@keyframes spine-pulse {
-  0%, 100% { box-shadow: none; }
-  30%      { box-shadow: 0 0 18px 2px var(--sf-mint); }
-}
-@keyframes pulse-hot {
-  50% { opacity: 0.72; }
-}
 @keyframes void-flash {
-  0%, 60% { background: rgba(239, 68, 68, 0.22); }
+  0%, 60% { background: rgba(255, 107, 94, 0.22); }
   100%    { background: transparent; }
 }

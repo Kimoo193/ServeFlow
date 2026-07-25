@@ -66,10 +66,10 @@
           <span class="group-name">{{ g.name }}</span>
           <span class="group-meta">{{ g.minSelect }}-{{ g.maxSelect }}{{ g.required ? ' · Required' : '' }}</span>
           <div class="group-actions" (click)="$event.stopPropagation()">
-            <button class="btn btn-sm" (click)="startEditGroup(g)">Edit</button>
+            <button class="btn btn-sm btn-ghost" (click)="startEditGroup(g)">Edit</button>
             @if (confirming()?.type === 'group' && confirming()?.id === g.id) {
               <span class="confirm-group">
-                <button class="btn btn-sm btn-danger" (click)="executeDeleteGroup(g.id)" [disabled]="busy()">Confirm</button>
+                <button class="btn btn-sm btn-danger-solid" (click)="executeDeleteGroup(g.id)" [disabled]="busy()">Confirm</button>
                 <button class="btn btn-sm btn-ghost" (click)="cancelConfirm()">Cancel</button>
               </span>
             } @else {
@@ -119,10 +119,10 @@
                 <span class="modifier-name">{{ m.name }}</span>
                 <span class="modifier-delta">{{ m.priceDelta >= 0 ? '+' : '' }}{{ m.priceDelta }}</span>
                 <div class="modifier-actions">
-                  <button class="btn btn-sm" (click)="startEditModifier(m)">Edit</button>
+                  <button class="btn btn-sm btn-ghost" (click)="startEditModifier(m)">Edit</button>
                   @if (confirming()?.type === 'modifier' && confirming()?.id === m.id) {
                     <span class="confirm-group">
-                      <button class="btn btn-sm btn-danger" (click)="executeDeleteModifier(m.id)" [disabled]="busy()">Confirm</button>
+                      <button class="btn btn-sm btn-danger-solid" (click)="executeDeleteModifier(m.id)" [disabled]="busy()">Confirm</button>
                       <button class="btn btn-sm btn-ghost" (click)="cancelConfirm()">Cancel</button>
                     </span>
                   } @else {

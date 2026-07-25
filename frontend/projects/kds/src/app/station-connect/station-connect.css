@@ -5,41 +5,68 @@
   display: grid;
   place-items: center;
   padding: 24px;
-  /* a quiet mint wash — the brand, kept in the background */
-  background:
-    radial-gradient(120% 90% at 50% -10%, rgba(52, 216, 180, 0.10), transparent 60%),
-    var(--sf-kds-bg);
+  background: var(--sf-kds-bg);
 }
 
 .connect-card {
   inline-size: min(420px, 100%);
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 28px;
+  gap: 16px;
+  padding: 40px;
+  background: transparent;
 }
 
-.brand { display: flex; align-items: center; gap: 10px; margin-block-end: 2px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+
+/* On dark the plate inverts: bright rim, pale center. */
 .brand .mark {
-  inline-size: 14px; block-size: 22px; border-radius: 3px;
-  background: linear-gradient(var(--sf-mint), var(--sf-spruce));
+  position: relative;
+  inline-size: 32px;
+  block-size: 32px;
+  border-radius: 50%;
+  border: 3px solid var(--sf-cyan-bright);
+  flex: none;
 }
-.brand .word { font-weight: 800; letter-spacing: -0.02em; font-size: var(--fs-lg); color: var(--sf-kds-text); }
-.brand .badge { margin-inline-start: auto; }
+.brand .mark::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: var(--sf-kds-text);
+}
 
-.lead { margin: 0 0 6px; color: var(--sf-kds-text-dim); font-size: var(--fs-base); }
+.brand .word {
+  font-size: var(--fs-xl);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--sf-kds-text);
+}
+.brand .word-strong { font-weight: 700; }
+.brand .word::after { content: "."; color: var(--sf-cyan-bright); font-weight: 700; }
 
-.mono-input { font-family: var(--sf-font-mono); }
+.lead { margin: 0; color: var(--sf-kds-text-dim); font-size: var(--fs-md); }
 
-.connect-error { margin: 0; color: #ff8a8a; font-size: var(--fs-sm); }
+.connect-error { margin: 0; color: var(--sf-kds-voided); font-size: var(--fs-sm); }
 
-/* KDS primary action stays mint (the board's accent), on the kit .btn base. */
+/* Station ID is the one field that decides what this screen *is* — the board
+   it opens. Cyan-ringed so a cook setting up a wall screen cannot miss it. */
+.field:has(#stationId) .field-label { color: var(--sf-cyan-dim); }
+.field:has(#stationId) .input { border-color: rgba(56, 166, 207, 0.5); }
+
+/* Green, matching the "Ready" bump the kitchen presses all shift — the
+   brightest, most-hit control on the dark screen. */
 .connect-submit {
-  margin-block-start: 6px;
-  padding-block: 12px;
-  background: var(--sf-mint);
-  color: #06231D;
-  border-color: var(--sf-mint);
+  margin-block-start: 4px;
+  padding-block: 13px;
+  font-size: var(--fs-md);
   font-weight: 700;
+  background: var(--sf-kds-ready);
+  color: var(--sf-kds-bg);
+  border-color: var(--sf-kds-ready);
 }
-.connect-submit:hover:not(:disabled) { background: #2bc6a4; border-color: #2bc6a4; color: #06231D; }
+.connect-submit:hover:not(:disabled) {
+  background: #3aa267;
+  border-color: #3aa267;
+  color: var(--sf-kds-bg);
+}

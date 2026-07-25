@@ -10,74 +10,106 @@
 .topbar {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--sf-kds-line);
-  background: linear-gradient(var(--sf-kds-panel), var(--sf-kds-bg));
+  gap: 20px;
+  padding: 22px 32px 18px;
+  border-block-end: 1px solid var(--sf-kds-line);
 }
 
 .back {
-  font-size: 22px; line-height: 1;
-  width: 36px; height: 36px;
-  color: var(--sf-kds-text-dim);
+  font-size: 26px;
+  line-height: 1;
+  inline-size: 40px;
+  block-size: 40px;
+  color: var(--sf-kds-text-faint);
   background: transparent;
-  border: 1px solid var(--sf-kds-line);
-  border-radius: 8px; cursor: pointer;
+  border: 0;
+  border-radius: var(--sf-radius-sm);
+  cursor: pointer;
 }
+.back:hover { color: var(--sf-kds-text); background: var(--sf-kds-panel); }
 
+/* The station name is the largest thing on the wall: a cook glancing up from
+   the pass needs to know which board they're reading before anything else. */
 .station {
   margin: 0;
-  font-size: 26px; font-weight: 900; letter-spacing: -0.02em;
-  text-transform: uppercase;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .conn {
-  margin-inline-start: auto;
-  display: inline-flex; align-items: center; gap: 7px;
-  font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-sm);
   color: var(--sf-kds-text-dim);
+  text-transform: capitalize;   /* the signal name is a lowercase enum value */
 }
 .conn .dot {
-  width: 9px; height: 9px; border-radius: 50%;
-  background: var(--sf-kds-text-dim);
+  inline-size: 9px;
+  block-size: 9px;
+  border-radius: 50%;
+  background: var(--sf-kds-text-faint);
+  flex: none;
 }
-.conn[data-state='connected'] .dot { background: var(--sf-ready); }
+/* A live board earns a halo; a dead one must not fake one. */
+.conn[data-state='connected'] .dot {
+  background: var(--sf-kds-ready);
+  box-shadow: 0 0 0 3px rgba(70, 184, 119, 0.25);
+}
 .conn[data-state='connecting'] .dot,
 .conn[data-state='reconnecting'] .dot {
-  background: var(--sf-preparing);
+  background: var(--sf-kds-preparing);
   animation: blink 1s ease-in-out infinite;
 }
-.conn[data-state='disconnected'] .dot { background: var(--sf-voided); }
+.conn[data-state='disconnected'] .dot { background: var(--sf-kds-voided); }
 
 .count {
-  font-size: 13px;
-  color: var(--sf-kds-text-dim);
+  margin-inline-start: auto;
+  font-size: var(--fs-md);
+  color: var(--sf-cyan-dim);
 }
 
 .banner {
   margin: 0;
-  padding: 10px 20px;
-  font-size: 13px;
-  color: #fff;
-  background: rgba(239, 68, 68, 0.16);
-  border-bottom: 1px solid rgba(239, 68, 68, 0.4);
+  padding: 11px 32px;
+  font-size: var(--fs-sm);
+  color: var(--sf-kds-text);
+  background: rgba(255, 107, 94, 0.16);
+  border-block-end: 1px solid rgba(255, 107, 94, 0.4);
 }
 
+/* An empty board is a state of the kitchen, not a hole in the page — so it
+   carries the lifecycle motif, waiting. */
 .empty {
   margin: auto;
-  max-width: 30ch;
+  max-inline-size: 34ch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
   text-align: center;
   color: var(--sf-kds-text-dim);
   font-size: 17px;
+}
+.empty::before {
+  content: "";
+  inline-size: 41px;
+  block-size: 11px;
+  background-image:
+    radial-gradient(circle 5.5px at 5.5px 5.5px,  #605d5d 99%, transparent 100%),
+    radial-gradient(circle 5.5px at 20.5px 5.5px, var(--sf-kds-text-faint) 99%, transparent 100%),
+    radial-gradient(circle 5.5px at 35.5px 5.5px, var(--sf-kds-text-dim) 99%, transparent 100%);
+  background-repeat: no-repeat;
 }
 
 .board {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
+  padding: 26px 32px 36px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: var(--sf-gap);
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
   align-content: start;
 }
 

@@ -1,46 +1,84 @@
 /* ============================================================================
-   ServeFlow — "Service Spruce" design tokens
+   ServeFlow — design tokens
    The palette IS the OrderLine state machine (specs/03-state-machines.md).
    Shared by KDS, Cashier, and Manager. One color means one thing everywhere.
+
+   Two surfaces, one family: Manager/Cashier render on warm paper greys, the
+   KDS on near-black. Brand cyan sits deliberately OUTSIDE the six status hues
+   so it never competes with a state — it marks *interaction*, never *state*.
    ============================================================================ */
 
 @import './fonts.css';
 
 :root {
-  /* Brand — spruce sits deliberately OUTSIDE the status hues so it never
-     competes with a state color. Mint is the "flow" pulse, used sparingly. */
-  --sf-spruce:       #0F5F52;
-  --sf-spruce-deep:  #0A463C;
-  --sf-mint:         #34D8B4;
+  /* ── Brand ───────────────────────────────────────────────────────────── */
+  --sf-cyan:        #0088b0;  /* actions, links, focus — the process ink     */
+  --sf-cyan-deep:   #006786;  /* text on cyan tints (AA on --sf-cyan-tint)   */
+  --sf-cyan-tint:   #e9f8ff;  /* selected nav, neutral badge, info banner    */
+  --sf-cyan-bright: #38a6cf;  /* the same ink, opened up for the dark KDS    */
+  --sf-cyan-dim:    #8fd6ee;
 
-  /* Light surfaces (Cashier / Manager) */
-  --sf-porcelain:    #F5F3EF;
-  --sf-ink:          #1A2420;
+  /* ── Light surfaces (Manager / Cashier) ──────────────────────────────── */
+  --sf-page:        #dedcd9;  /* the desk the panels sit on                  */
+  --sf-surface:     #f3f2f2;  /* panel / card                                */
+  --sf-surface-2:   #eae9e9;  /* inset: stat tiles, inline forms, inputs     */
+  --sf-surface-3:   #d7d3d3;  /* skeleton fill                               */
+  --sf-ink:         #201e1d;
+  --sf-ink-2:       #444141;
+  --sf-muted:       #605d5d;
+  --sf-muted-2:     #7d7979;
+  --sf-faint:       #9b9797;
+  --sf-hair:        rgba(32, 30, 29, 0.08);
+  --sf-hair-2:      rgba(32, 30, 29, 0.16);
 
-  /* Dark surfaces (KDS wall screen) */
-  --sf-kds-bg:       #10161A;
-  --sf-kds-panel:    #182126;
-  --sf-kds-panel-2:  #1E2A30;
-  --sf-kds-line:     #2A3940;
-  --sf-kds-text:     #E7EEF0;
-  --sf-kds-text-dim: #8FA3AB;
+  /* ── Dark surface (KDS wall screen) ──────────────────────────────────── */
+  --sf-kds-bg:       #201e1d;
+  --sf-kds-panel:    #2d2b2b;
+  --sf-kds-panel-2:  #383535;
+  --sf-kds-line:     rgba(243, 242, 242, 0.10);
+  --sf-kds-line-2:   rgba(243, 242, 242, 0.16);
+  --sf-kds-text:     #f3f2f2;
+  --sf-kds-text-dim: #bab6b6;
+  --sf-kds-text-faint: #9b9797;
 
-  /* Status spine — the six OrderLine states. Fixed for legibility. */
-  --sf-draft:     #8A97A0;
-  --sf-fired:     #5B8DEF;
-  --sf-preparing: #F5A524;
-  --sf-ready:     #2FBF71;
-  --sf-served:    #5A6B66;
-  --sf-voided:    #EF4444;
+  /* ── The six OrderLine states ────────────────────────────────────────────
+     Each is an ink + the tint it sits on. Fixed for legibility; never reused
+     for chrome. Read left to right, they are the lifecycle. */
+  --sf-draft:          #7d7979;  --sf-draft-tint:     #eae7e7;
+  --sf-fired:          #d6006c;  --sf-fired-tint:     #ffdee6;
+  --sf-preparing:      #a9760a;  --sf-preparing-tint: #f4e7c9;
+  --sf-ready:          #2f7d55;  --sf-ready-tint:     #dcece2;
+  --sf-served:         #9b9797;  --sf-served-tint:    #f3efef;
+  --sf-voided:         #b3261e;  --sf-voided-tint:    #f6dcd9;
 
-  /* Type */
-  --sf-font-ui:   'Rubik', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --sf-font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+  /* The same six, opened up for the dark board — a wall screen needs the
+     signal to carry across a kitchen, not to whisper. */
+  --sf-kds-fired:     #ff458e;
+  --sf-kds-preparing: #edbb00;
+  --sf-kds-ready:     #46b877;
+  --sf-kds-voided:    #ff6b5e;
 
-  /* Shape & rhythm */
-  --sf-radius:    12px;
-  --sf-radius-sm: 8px;
+  /* ── Type ────────────────────────────────────────────────────────────────
+     Serif for voice, mono for anything a human counts, compares, or reads
+     back aloud. Rubik trails the serif purely to cover Arabic. */
+  --sf-font-ui:   'Source Serif 4', 'Rubik', Georgia, serif;
+  --sf-font-mono: 'Source Code Pro', ui-monospace, 'SFMono-Regular', monospace;
+
+  --fs-xs:   0.6875rem;  /* 11px — eyebrows, table heads      */
+  --fs-sm:   0.8125rem;  /* 13px — meta, hints                */
+  --fs-base: 0.875rem;   /* 14px — body, table cells          */
+  --fs-md:   0.9375rem;  /* 15px — inputs, nav, primary CTA   */
+  --fs-lg:   1.125rem;   /* 18px — card titles                */
+  --fs-xl:   1.5rem;     /* 24px — section titles             */
+  --fs-2xl:  2.125rem;   /* 34px — page titles                */
+
+  /* ── Shape & rhythm ──────────────────────────────────────────────────────
+     Near-square corners: this is an instrument, not a toy. */
+  --sf-radius:    2px;
+  --sf-radius-sm: 2px;
+  --sf-shadow:    0 1px 2px rgba(45, 43, 43, 0.14);
   --sf-gap:       16px;
+  --ease-out:     cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -53,13 +91,20 @@ html, body {
   text-rendering: optimizeLegibility;
 }
 
+h1, h2, h3, h4 {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.12;
+}
+
 /* Tabular figures everywhere numbers matter (counts, money, timers). */
 .sf-nums, .sf-mono { font-variant-numeric: tabular-nums; }
 .sf-mono { font-family: var(--sf-font-mono); }
 
 /* Keyboard focus is always visible — part of the quality floor. */
-:where(button, a, input, [tabindex]):focus-visible {
-  outline: 2px solid var(--sf-mint);
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--sf-cyan);
   outline-offset: 2px;
 }
 

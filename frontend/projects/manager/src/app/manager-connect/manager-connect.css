@@ -5,32 +5,50 @@
   display: grid;
   place-items: center;
   padding: 24px;
-  background:
-    radial-gradient(120% 90% at 50% -10%, rgba(15, 95, 82, 0.06), transparent 60%),
-    var(--sf-porcelain);
+  background: var(--sf-page);
 }
 
 .connect-card {
   inline-size: min(420px, 100%);
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 28px;
+  gap: 16px;
+  padding: 40px;
+  background: var(--sf-surface);
   box-shadow: var(--sf-shadow);
 }
 
-.brand { display: flex; align-items: center; gap: 10px; margin-block-end: 2px; }
+.brand { display: flex; align-items: center; gap: 13px; }
+
+/* A plate seen from above — a cyan rim around an ink center. */
 .brand .mark {
-  inline-size: 14px; block-size: 22px; border-radius: 3px;
-  background: linear-gradient(var(--sf-mint), var(--sf-spruce));
+  position: relative;
+  inline-size: 34px;
+  block-size: 34px;
+  border-radius: 50%;
+  border: 3px solid var(--sf-cyan);
+  flex: none;
 }
-.brand .word { font-weight: 800; letter-spacing: -0.02em; font-size: var(--fs-lg); color: var(--sf-ink); }
-.brand .badge { margin-inline-start: auto; }
+.brand .mark::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: var(--sf-ink);
+}
 
-.lead { margin: 0 0 6px; color: var(--sf-muted); font-size: var(--fs-base); }
+/* The wordmark shifts weight at the seam of the two words. */
+.brand .word {
+  font-size: var(--fs-xl);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--sf-ink);
+}
+.brand .word-strong { font-weight: 700; }
+.brand .word::after { content: "."; color: var(--sf-cyan); font-weight: 700; }
 
-.mono-input { font-family: var(--sf-font-mono); }
+.lead { margin: 0; color: var(--sf-muted); font-size: var(--fs-md); }
 
 .connect-error { margin: 0; color: var(--sf-voided); font-size: var(--fs-sm); }
 
-.connect-submit { margin-block-start: 6px; padding-block: 12px; }
+.connect-submit { margin-block-start: 4px; padding-block: 12px; font-size: var(--fs-md); }

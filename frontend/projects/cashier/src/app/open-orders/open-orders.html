@@ -33,15 +33,16 @@
               @if (order.tableLabel) {
                 <span class="table-label">Table {{ order.tableLabel }}</span>
               } @else {
-                <span class="table-label takeaway">Takeaway</span>
+                <span class="table-label">Takeaway</span>
+              }
+              @if (order.dailyNo) {
                 <span class="daily-no sf-mono">#{{ order.dailyNo }}</span>
               }
-              <span class="order-type">{{ order.orderType }}</span>
             </div>
 
-            @if (order.customerName) {
-              <p class="customer">{{ order.customerName }}</p>
-            }
+            <p class="customer">
+              {{ order.orderType }}@if (order.customerName) { &middot; {{ order.customerName }} }
+            </p>
 
             <div class="card-meta">
               <span class="count sf-mono">{{ order.lineCount }} item{{ order.lineCount === 1 ? '' : 's' }}</span>

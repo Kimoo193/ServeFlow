@@ -1,31 +1,8 @@
 :host { display: block; }
 
-/* Banner comes from the shared kit. Menu-specific tab bar below (matches the
-   Staff tabs for a consistent tabbed-surface vocabulary). */
+/* Banner and the tab bar (segmented control) both come from the shared kit —
+   Menu and Staff use the identical vocabulary, so neither restyles it. */
 
-.tabs {
-  display: flex;
-  gap: 4px;
-  margin-block-end: 20px;
-  border-block-end: 1px solid var(--sf-hair);
-}
-.tabs button {
-  padding: 10px 20px;
-  border: none;
-  background: transparent;
-  font: inherit;
-  font-size: var(--fs-base);
-  font-weight: 600;
-  color: var(--sf-muted);
-  cursor: pointer;
-  border-block-end: 2px solid transparent;
-  margin-block-end: -1px;
-  transition: color 0.15s var(--ease-out), border-color 0.15s var(--ease-out);
-}
-.tabs button:hover { color: var(--sf-spruce); }
-.tabs button.active {
-  color: var(--sf-spruce-deep);
-  border-block-end-color: var(--sf-spruce);
-}
+.tabs { margin-block-end: 24px; }
 
 .tab-content { min-block-size: 300px; }
