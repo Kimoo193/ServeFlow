@@ -198,20 +198,32 @@ export class StationBoard implements OnInit, OnDestroy {
       await this.api.startPreparing(line.id);
     } catch {
       this.setLineStatus(line.id, 'Fired');
-      this.error.set('Could not start that line — it may have changed. Refreshing.');
       await this.reload();
+      this.reportBumpFailure('Could not start that line — it may have changed.');
     }
   }
 
   async onReady(line: TicketLine): Promise<void> {
-    // Ready leaves the active board — remove optimistically, restore on failure.
+    // Ready leaves the active board — remove optimistically; the reload below is what
+    // puts the line back if the bump did not take.
     this.removeLine(line.id);
     try {
       await this.api.markReady(line.id);
     } catch {
-      this.error.set('Could not mark ready — it may have changed. Refreshing.');
       await this.reload();
+      this.reportBumpFailure('Could not mark ready — it may have changed.');
     }
+  }
+
+  /**
+   * Report a failed bump *after* the reload that follows it.
+   *
+   * Setting it before meant `reload()` cleared the message on its way out and the line
+   * silently snapped back with nothing on screen to say why. If the reload itself failed,
+   * its message is the more serious one and stands.
+   */
+  private reportBumpFailure(message: string): void {
+    if (!this.error()) this.error.set(message);
   }
 
   // --- helpers -----------------------------------------------------------
