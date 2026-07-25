@@ -153,12 +153,23 @@ distributed one per line until exhausted. Widening the column was rejected: `1/3
 terminate at any decimal precision, so it reduces the error without removing it, and it touches
 every money path.
 
-Consequences to handle rather than discover:
-- A 3-item combo puts 3+ lines on the KDS ticket. Acceptable — it also gives per-unit bump
-  granularity — but the ticket needs to show they belong to one combo, or the kitchen reads it
-  as three unrelated items.
-- Voiding one unit of a combo now voids part of a bundle. Check this against BR-B-01 before
-  building: the subtotal must stay coherent when a component line is voided.
+Two of the consequences resolve against the specs; a third is genuinely open.
+
+- **Voiding one unit — resolved, no special handling.** BR-B-01 says the bill is computed from
+  non-voided lines only, so a voided component simply takes its allocated share out of the
+  subtotal. Voiding one unit of a three-unit combo drops roughly a third of the bundle price,
+  which is the coherent answer. No combo-aware void logic is needed.
+- **Grouping the lines on the KDS ticket — resolved, do not do it.** BR-O-06 says each component
+  line "is routed to its own station independently", so a combo's lines may legitimately land on
+  *different* station screens and cannot be one ticket. BR-O-04/05 ask only for sequence order
+  and station routing. The earlier worry here was misplaced.
+- **⚠️ Open: `OrderLine` has no combo provenance.** There is no `ComboId` column, so once a combo
+  expands, nothing records that those lines came from one. Consequences: the receipt (BR-B-04)
+  shows a Burger at `3.34` with no explanation of why it is not `8.00`, and a whole combo cannot
+  be voided in one action. Nothing in the spec requires provenance, so it can ship without —
+  but adding it later is a migration on a hot table. **Decide before building**, and note a
+  nullable `combo_id` on `order_lines` needs a migration, which per CLAUDE.md must be shown and
+  approved first.
 
 The test must assert exactness — `Σ(qty × unit_price) == Combo.Price × comboQty` — with awkward
 numbers (a price that does not divide evenly) and a component of quantity 3.
