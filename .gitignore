@@ -21,6 +21,14 @@ Thumbs.db
 # Claude Code harness-local state (not project source)
 .claude/
 
-# Browser-automation screenshot/snapshot artifacts from local UI verification
+# Browser-automation screenshot/snapshot artifacts from local UI verification.
+# Scoped to the tool's output dir, not a blanket *.png — this project may well
+# ship real image assets one day.
 .playwright-mcp/
-*.png
+/manager-connect.png
+
+# Stray npm lockfile: backend/ is .NET and has no package.json. An empty
+# lockfile lands here whenever someone runs npm in the wrong directory.
+# Deliberately NOT a bare `package-lock.json` — frontend/package-lock.json is
+# tracked and must stay that way.
+/backend/package-lock.json
