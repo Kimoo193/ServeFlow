@@ -16,7 +16,7 @@ problem is, why it matters, and the decisions already made so nobody re-litigate
 | 2 | Authorize the order lifecycle | **Done** — `a11affc` |
 | 3 | Combos: decide pricing or hide the feature | **Not started** — decision made, unimplemented |
 | 4 | Reconcile `CLAUDE.md` with reality | **Not started** |
-| 5 | A thin frontend test layer | **Not started** ← **start here** |
+| 5 | A thin frontend test layer | **Started** — auth layer covered, apps outstanding |
 
 Tests: **105 passing** (was 80 at review time). Backend gates green; all three Angular apps
 build clean.
@@ -88,28 +88,33 @@ both were confirmed to fail against the old guard before being kept.
 
 ## Remaining
 
-### 5 — A thin frontend test layer  ← **start here**
+### 5 — A thin frontend test layer  ← **in progress, continue here**
 
-**Zero `.spec.ts` files across all four frontend projects**, despite `test` targets being
-configured on each. ~4k lines of UI verified only by manual browser QA.
+The workspace went from **zero** `.spec.ts` files to **28 tests** covering the shared auth
+layer. No packages were needed: `vitest` 4 + `jsdom` and the `@angular/build:unit-test`
+builder were already configured on all four projects — the roadmap's earlier note about
+needing a runner (and rule-7 approval) was wrong.
 
-This moved to the front of the queue because item 1b just demonstrated the cost: the KDS
-permission bug and the seeder bug were both found by driving a browser by hand, and neither
-would survive a refactor undetected without tests. The auth layer is also now the
-best-specified, most test-shaped code in the frontend.
+**Done** — `projects/shared/src/lib/auth/`:
+- `session.service.spec.ts` — login request shape, `userId`/`role` taken from the response
+  rather than the request, password never persisted, `APP_ID`-scoped storage key, two apps not
+  sharing a session, restore accepting a future `exp` and rejecting past/non-JWT/garbled/
+  context-less/malformed values, a login→refresh round trip, and `disconnect`.
+- `auth.interceptor.spec.ts` — bearer attach/skip; a 401 in session clears and routes to `/`;
+  a 401 from `/auth/login` does neither; a 401 with no session does neither; a 500 passes
+  through. Every case also asserts the error still reaches the caller.
+- `loginErrorMessage` — every mapped status plus the non-`HttpErrorResponse` fallback.
 
-Highest value for least effort:
-- `SessionService`: restore with a valid token, with an expired one, with a non-JWT string;
-  `login` persisting under the injected `APP_ID` key; `disconnect` clearing it.
-- `authErrorInterceptor`: a 401 in-session clears and redirects; a 401 from `/auth/login`
-  does neither.
-- `loginErrorMessage`: each status maps to its wording.
-- The three connect flows: validation before submit, and no password left in a signal after
-  a successful login.
-- The KDS board's event reducer (`OrderFired` / `OrderLineVoided` / status bumps).
+Each spec was checked by mutation, not just by passing: dropping the `/auth/login` exemption
+fails exactly one test, and reverting the storage key to the old shared constant fails 13.
 
-Note `ng test` has never been run in this workspace — expect to install and wire a runner
-before writing the first spec (needs approval per CLAUDE.md rule 7).
+**Still to do:**
+- The three connect components (validation before submit; the password signal cleared after a
+  successful login).
+- The KDS board's event reducer (`OrderFired` / `OrderLineVoided` / status bumps) — the
+  highest-risk untested logic left in the frontend.
+- The `kds`, `cashier`, and `manager` projects each still have zero specs, so `ng test <app>`
+  fails with "No tests found" for all three.
 
 ### 3 — Combos: make them orderable
 

@@ -12,26 +12,33 @@ ROW LEVEL SECURITY).
 | Surface | What it does |
 |---|---|
 | **Backend** | Multi-tenant API (RLS), JWT auth, order lifecycle (Draft→Fired→Preparing→Ready→Served/Voided), fire batches, SignalR live KDS push, close + receipt/bill-preview, menu/modifier/station CRUD, floor/section/table management, staff & role-permissions matrix, dashboard, order-history, ESC/POS print |
-| **KDS** (Angular) | Live station board by `(order, fire_batch)`, Start / Ready bumps, NEW/VOID/CHANGE alerts via SignalR, multi-terminal station sync |
+| **KDS** (Angular) | Live station board by `(order, fire_batch)`, Start / Ready bumps, NEW/VOID alerts via SignalR, aging timers |
 | **Cashier** (Angular) | Open orders list, bill preview with tax/service, close (snapshot totals), receipt / print |
 | **Manager** (Angular) | Dashboard (today's orders), Menu config (categories/items/modifiers/groups/combos/stations), Floor (sections/tables), Staff & roles/permissions, Order history |
 
 ## Architecture
 
-Clean Architecture split across four .NET projects:
+Four .NET projects, laid out along Clean Architecture lines:
 
 ```
 backend/
 ├── Pos.sln
 ├── src/
-│   ├── Pos.Domain/          # entities, value objects, enums, invariants, domain events
-│   ├── Pos.Application/     # use-cases, interfaces (ITenantContext, IClock…)
+│   ├── Pos.Domain/          # entities, enums — data shapes, no behaviour yet
+│   ├── Pos.Application/     # abstractions only: ITenantContext, IClock, one exception
 │   ├── Pos.Infrastructure/  # EF DbContext, migrations, RLS, Redis, SignalR impl
-│   └── Pos.Api/             # controllers, hubs, DI composition, middleware
+│   └── Pos.Api/             # minimal-API endpoints, hubs, DI composition, middleware
 └── tests/
-    ├── Pos.Domain.Tests/
+    ├── Pos.Domain.Tests/    # project exists, currently empty
     └── Pos.Application.Tests/
 ```
+
+**Be aware of where the logic actually lives.** Despite the layout, there are no use-case
+classes: business rules are written inline in the endpoint lambdas in `Pos.Api` (transaction
+script over EF Core), and `Pos.Domain` holds property bags rather than invariants. That is a
+deliberate MVP tradeoff, but it means **looking in `Pos.Domain` for a rule will find nothing**
+— check `OrderEndpoints.cs` instead. Reconciling this properly is a tracked item in
+`ROADMAP.md`.
 
 Three Angular apps (standalone + signals) share a `@serveflow/shared` library:
 
@@ -51,7 +58,7 @@ frontend/
 |---|---|
 | Backend | .NET 10, ASP.NET Core, EF Core, PostgreSQL 16, Redis 7, SignalR, xUnit |
 | Auth | JWT via `POST /auth/login` (PBKDF2 password hashing); an OIDC provider can replace it behind the same contract |
-| Frontend | Angular 22 (standalone/signals), SignalR via `@microsoft/signalr` |
+| Frontend | Angular 22 (standalone/signals), SignalR via `@microsoft/signalr`, Vitest + jsdom |
 | Infra | Docker Compose (Postgres + Redis), Coolify (deploy target) |
 
 ## Prerequisites
@@ -89,9 +96,12 @@ cd backend
 dotnet run --project src/Pos.Api --urls http://localhost:5299
 ```
 
-Development mode auto-runs `DevSeeder` (seeds tenant + branch + settings + per-role users —
-see *Test accounts* below) and exposes `POST /dev/token` for minting JWTs. The API listens
-on port `5299` matching the frontend environment configs.
+Development mode auto-runs `DevSeeder` on every start (tenant + branch + settings + one user
+per role with a password, plus any role-permission grant that is missing — see *Test accounts*
+below) and exposes `POST /dev/token` for minting a JWT with an arbitrary role. The API listens
+on `5299`, matching the frontend environment configs.
+
+The API does **not** apply migrations on start — run step 2 yourself after pulling a migration.
 
 ### 4. Start a frontend app
 
@@ -115,6 +125,8 @@ for itself.
 
 ## How to test
 
+### Backend
+
 ```bash
 docker compose up -d redis     # required — see below
 cd backend && dotnet test
@@ -129,7 +141,23 @@ roughly a third of the suite fails with errors that look nothing like a Redis pr
 Currently **105 tests** across RLS isolation, permission enforcement, password login, dev
 seeding, order lifecycle, fire batches, close/receipt, and offline idempotency.
 
-Frontend build check (no Jest/Karma tests in Phase 1):
+### Frontend
+
+The workspace runs unit tests on Vitest through Angular's `@angular/build:unit-test` builder
+(configured on all four projects, with `jsdom` as the environment):
+
+```bash
+cd frontend
+npx ng test shared --watch=false      # per project: shared | kds | cashier | manager
+```
+
+Currently **28 tests**, all in the shared auth layer: `SessionService` login/restore/expiry and
+per-app storage isolation, both HTTP interceptors, and `loginErrorMessage`. The `kds`, `cashier`,
+and `manager` projects have no specs yet — and a project with none **fails** with "No tests
+found matching the following patterns" rather than reporting zero. That is a missing-specs
+message, not a broken runner.
+
+Build check:
 
 ```bash
 cd frontend && npx ng build manager && npx ng build cashier && npx ng build kds
