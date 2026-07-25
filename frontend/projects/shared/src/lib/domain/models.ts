@@ -74,9 +74,13 @@ export interface OrderLineVoidedEvent {
 }
 
 /**
- * Payload of the SignalR "OrderLineStatusChanged" event (station group).
- * Emitted when a line is bumped Fired→Preparing or Preparing→Ready so a second
- * KDS terminal on the same station mirrors the change live.
+ * Payload of the SignalR "OrderLineStatusChanged" event.
+ *
+ * Emitted when a line is bumped Fired→Preparing or Preparing→Ready. Note the backend
+ * currently sends this to the `waiter:` group only, never `station:`, so a second KDS
+ * terminal on the same station will NOT mirror another terminal's bump — Phase 1 assumes
+ * one screen per station. The board handles the event so it is already correct if the
+ * station broadcast is added.
  */
 export interface OrderLineStatusChangedEvent {
   orderId: string;

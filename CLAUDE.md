@@ -53,12 +53,12 @@ restaurant-pos/
 └── backend/
     ├── Pos.sln
     ├── src/
-    │   ├── Pos.Domain/          # entities, value objects, enums, invariants, domain events
-    │   ├── Pos.Application/     # use-cases (commands/queries), interfaces (ITenantContext…)
+    │   ├── Pos.Domain/          # entities, enums (mostly data shapes — see below)
+    │   ├── Pos.Application/     # abstractions only: ITenantContext, IClock, one exception
     │   ├── Pos.Infrastructure/  # EF DbContext, migrations, RLS, Redis, SignalR impl
-    │   └── Pos.Api/             # controllers, hubs, DI composition, auth middleware
+    │   └── Pos.Api/             # minimal-API endpoints, hubs, DI composition, middleware
     └── tests/
-        ├── Pos.Domain.Tests/
+        ├── Pos.Domain.Tests/    # project exists, currently empty
         └── Pos.Application.Tests/
 ```
 
@@ -67,11 +67,33 @@ restaurant-pos/
 - **Dependency direction:** `Api → Application → Domain`; `Infrastructure → Application →
   Domain`; `Api → Infrastructure` (DI wiring only). **Domain has zero external dependencies.**
 - **Domain** contains no EF attributes — mapping is Fluent config in Infrastructure.
-- **Application** holds use-cases and interfaces only; no infrastructure concerns, no EF, no
-  HTTP.
+- **Application** holds interfaces only; no infrastructure concerns, no EF, no HTTP.
 - **Infrastructure** owns `PosDbContext`, migrations, RLS policy SQL, Redis, and the SignalR
   hub implementation.
 - **Api** owns endpoints, hub routes, middleware, and composition root.
+
+### Where the logic actually lives (read this before hunting for a rule)
+
+The folders above are Clean Architecture's, but the code inside them is not. As measured
+2026-07-26:
+
+```
+Pos.Domain           28 files   344 lines   entities + enums; almost no behaviour
+Pos.Application       3 files    33 lines   IClock, ITenantContext, one exception
+Pos.Infrastructure   30 files  1399 lines
+Pos.Api              14 files  2484 lines   OrderEndpoints.cs alone is 1239
+```
+
+**There are no use-case classes.** Business rules are written inline in the endpoint lambdas
+in `Pos.Api` — transaction script over EF Core. That is an accepted MVP tradeoff, not an
+oversight, and we are **not** retrofitting Clean Architecture.
+
+The rule that matters for you: **looking in `Pos.Domain` for a business rule will find
+nothing — read the endpoint.** When you catch the *same* rule written out at several call
+sites, promote it to a method on the entity rather than copying it a fourth time.
+`Order.IsAcceptingChanges` / `Order.AcceptingChanges` is the worked example: one Open-or-
+InProgress definition now serves three inline guards and one EF `Where`, where previously
+each site restated the status list and was free to drift.
 
 ## Multi-tenancy (critical)
 
@@ -124,7 +146,9 @@ restaurant-pos/
 
 ## Open decisions (resolve before the noted slice)
 
-These are genuinely undecided — do **not** invent answers; confirm with Kareem first.
+Anything still marked open is genuinely undecided — do **not** invent answers; confirm with
+Kareem first. Resolved entries are kept, struck through, with what actually shipped, so the
+reasoning is not rediscovered later.
 
 1. ~~**KimooKit contract**~~ *(RESOLVED 2026-07-23)* — JWT claims are custom short names
    `tenant_id` / `branch_id` / `user_id` / `role` (`MapInboundClaims=false`); see
@@ -132,17 +156,35 @@ These are genuinely undecided — do **not** invent answers; confirm with Kareem
    the `users` table holds the staff directory (`display_name`, single `role` enum from
    `Owner|Manager|Cashier|Waiter|Kitchen`), extended by the Manager slice with an `is_active`
    flag and a `role_permissions` matrix for granular grants. KimooKit remains the token/password
-   issuer; the Manager never touches credentials. Permission *enforcement* across existing
-   endpoints (they are `RequireAuthorization()` only today) is a separate, later concern.
-2. **Combo pricing** *(blocks Slice 2–3)* — a combo expands into component `OrderLine`s
-   (BR-O-06) each with a snapshot `unit_price`, but `Combo.price` is a single bundle price.
-   How the bundle price reconciles with the line snapshots for `subtotal` (BR-B-01) is open.
-3. **Offline idempotency + `row_version` granularity** *(shapes Slice 3 schema)* — the
-   exactly-once mechanism on reconnect (NFR-2). Recommended default (pending confirmation):
-   client-generated `OrderLine` Guids as idempotency keys; keep `Order.row_version` for
-   structural writes (add/fire/close/cancel) so KDS line-status bumps don't false-conflict.
-4. **SignalR groups & hub auth** *(blocks Slice 4)* — how clients authenticate to `/posHub`
-   and join station vs order/waiter groups.
+   issuer; the Manager never touches credentials.
+   *(Updated 2026-07-26)* **KimooKit does not exist** — no package, no source, no private
+   feed; it survived only in comments. `POST /auth/login` in `AuthEndpoints.cs` is now the
+   first-party issuer (PBKDF2-SHA256, BCL only), shaped so an OIDC provider can replace it
+   behind the identical contract. Permission *enforcement* is also no longer deferred: all
+   46 mutating endpoints are gated (42 by filter, 2 by inline checks carrying the BR-M-03
+   own-waiter exception, 2 anonymous by design).
+2. **Combo pricing** *(still open — blocks making combos orderable)* — **decided:** the
+   bundle price wins. A combo expands into component `OrderLine`s per BR-O-06 with
+   `Combo.Price` allocated across them proportionally to list price, so `subtotal` over
+   non-voided lines equals the bundle price (BR-B-01 holds).
+   **Still to confirm:** `order_lines.unit_price` is `numeric(10,2)`, so with a component
+   quantity > 1 no 2-decimal unit price makes `Σ(quantity × unit_price)` equal an arbitrary
+   bundle price. Options and the recommendation are in `ROADMAP.md` item 3. Do not start the
+   implementation until Kareem picks one.
+3. ~~**Offline idempotency + `row_version` granularity**~~ *(RESOLVED — shipped)* — client
+   supplies the Guid: `orderId` on `POST /tables/{id}/orders` and the line id on add-line, so
+   a replay returns the same row instead of duplicating. `Order.RowVersion` guards structural
+   writes only, so KDS line-status bumps never false-conflict — and a stale `row_version`
+   replaying an already-created line succeeds rather than 409-ing. See
+   `tests/Pos.Application.Tests/Orders/OfflineIdempotencyTests.cs`.
+4. ~~**SignalR groups & hub auth**~~ *(RESOLVED — shipped)* — `/posHub` is
+   `RequireAuthorization()`; the client passes the JWT via `accessTokenFactory`. `PosHub`
+   exposes `JoinStationGroup`, `JoinBranchGroup`, and `JoinWaiterGroup`, each reading the
+   tenant/user from claims and verifying the target row belongs to that tenant **under RLS**
+   before joining. Groups are `station:{id}`, `branch:{id}`, `waiter:{userId}`.
+   ⚠️ Known gap: bump events (`LineStatusChanged`) broadcast **only** to `waiter:{id}`, never
+   to `station:{id}`, so a second KDS terminal on the same station does not see another
+   terminal's bumps live. Phase 1 assumes one screen per station.
 
 ## Working agreement
 

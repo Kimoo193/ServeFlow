@@ -141,7 +141,7 @@ internal static class OrderEndpoints
 
             var order = await db.Orders.FindAsync([orderId], ct);
             if (order is null) return Results.NotFound();
-            if (order.Status != OrderStatus.Open && order.Status != OrderStatus.InProgress)
+            if (!order.IsAcceptingChanges)
                 return Results.Problem(statusCode: 409, title: "Order is not open");
 
             if (order.RowVersion != body.RowVersion)
@@ -200,7 +200,7 @@ internal static class OrderEndpoints
         {
             var order = await db.Orders.FindAsync([orderId], ct);
             if (order is null) return Results.NotFound();
-            if (order.Status != OrderStatus.Open && order.Status != OrderStatus.InProgress)
+            if (!order.IsAcceptingChanges)
                 return Results.Problem(statusCode: 409, title: "Order is not open");
 
             if (order.RowVersion != body.RowVersion)
@@ -274,7 +274,7 @@ internal static class OrderEndpoints
         group.MapGet("/orders/open", async (PosDbContext db, CancellationToken ct) =>
         {
             var orders = await db.Orders
-                .Where(o => o.Status == OrderStatus.Open || o.Status == OrderStatus.InProgress)
+                .Where(Order.AcceptingChanges)
                 .OrderBy(o => o.DailyNo)
                 .ToListAsync(ct);
 
@@ -444,7 +444,7 @@ internal static class OrderEndpoints
             var order = await db.Orders.FindAsync([orderId], ct);
             if (order is null) return Results.NotFound();
 
-            if (order.Status != OrderStatus.Open && order.Status != OrderStatus.InProgress)
+            if (!order.IsAcceptingChanges)
                 return Results.Problem(statusCode: 409, title: "Order is not open");
 
             if (order.RowVersion != body.RowVersion)

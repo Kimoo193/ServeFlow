@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+
 namespace Pos.Domain.Entities;
 
 public class Order
@@ -18,4 +20,21 @@ public class Order
     public decimal? TotalAmount { get; set; }
 
     public int RowVersion { get; set; }
+
+    /// <summary>
+    /// Whether the order can still be changed — lines added, edited, voided or fired.
+    /// Once it leaves Open/InProgress it has been closed or cancelled and is final.
+    /// </summary>
+    public bool IsAcceptingChanges => Status is OrderStatus.Open or OrderStatus.InProgress;
+
+    /// <summary>
+    /// The queryable form of <see cref="IsAcceptingChanges"/>.
+    /// </summary>
+    /// <remarks>
+    /// EF Core cannot translate the computed property into SQL, so without this the status
+    /// list would have to be restated inside every <c>Where</c> — which is how it came to be
+    /// written out at four separate call sites, free to drift apart.
+    /// </remarks>
+    public static Expression<Func<Order, bool>> AcceptingChanges =>
+        o => o.Status == OrderStatus.Open || o.Status == OrderStatus.InProgress;
 }
