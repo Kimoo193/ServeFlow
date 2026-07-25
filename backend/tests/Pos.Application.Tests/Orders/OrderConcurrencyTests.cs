@@ -201,6 +201,16 @@ public sealed class OrderConcurrencyTests(PostgresRlsFixture fixture)
         }
 
         await using (var cmd = new NpgsqlCommand(
+            "INSERT INTO role_permissions (id, tenant_id, role, permission) VALUES (@id, @tenantId, @role, @permission)", connection))
+        {
+            cmd.Parameters.AddWithValue("id", Guid.NewGuid());
+            cmd.Parameters.AddWithValue("tenantId", tenantId);
+            cmd.Parameters.AddWithValue("role", "Waiter");
+            cmd.Parameters.AddWithValue("permission", "TakeOrder");
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        await using (var cmd = new NpgsqlCommand(
             "INSERT INTO sections (id, tenant_id, branch_id, name) VALUES (@id, @tenantId, @branchId, @name)", connection))
         {
             cmd.Parameters.AddWithValue("id", sectionId);
@@ -257,6 +267,16 @@ public sealed class OrderConcurrencyTests(PostgresRlsFixture fixture)
             cmd.Parameters.AddWithValue("id", waiterId);
             cmd.Parameters.AddWithValue("tenantId", tenantId);
             cmd.Parameters.AddWithValue("name", "Test Waiter");
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        await using (var cmd = new NpgsqlCommand(
+            "INSERT INTO role_permissions (id, tenant_id, role, permission) VALUES (@id, @tenantId, @role, @permission)", connection))
+        {
+            cmd.Parameters.AddWithValue("id", Guid.NewGuid());
+            cmd.Parameters.AddWithValue("tenantId", tenantId);
+            cmd.Parameters.AddWithValue("role", "Waiter");
+            cmd.Parameters.AddWithValue("permission", "TakeOrder");
             await cmd.ExecuteNonQueryAsync();
         }
 

@@ -99,6 +99,43 @@ public static class DevSeeder
                 Role = Role.Cashier,
                 Permission = Permission.ViewHistory,
             });
+            dbContext.RolePermissions.Add(new RolePermission
+            {
+                Id = Guid.NewGuid(),
+                TenantId = TenantId,
+                Role = Role.Cashier,
+                Permission = Permission.ReprintReceipt,
+            });
+
+            dbContext.RolePermissions.Add(new RolePermission
+            {
+                Id = Guid.NewGuid(),
+                TenantId = TenantId,
+                Role = Role.Waiter,
+                Permission = Permission.TakeOrder,
+            });
+            dbContext.RolePermissions.Add(new RolePermission
+            {
+                Id = Guid.NewGuid(),
+                TenantId = TenantId,
+                Role = Role.Waiter,
+                Permission = Permission.FireOrder,
+            });
+            dbContext.RolePermissions.Add(new RolePermission
+            {
+                Id = Guid.NewGuid(),
+                TenantId = TenantId,
+                Role = Role.Waiter,
+                Permission = Permission.ServeLine,
+            });
+
+            dbContext.RolePermissions.Add(new RolePermission
+            {
+                Id = Guid.NewGuid(),
+                TenantId = TenantId,
+                Role = Role.Kitchen,
+                Permission = Permission.BumpKitchenLine,
+            });
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

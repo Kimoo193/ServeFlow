@@ -73,7 +73,7 @@ internal static class OrderEndpoints
             // and returns 409 — no local catch needed here.
 
             return Results.Created($"/orders/{order.Id}", new { orderId = order.Id, status = order.Status.ToString(), rowVersion = order.RowVersion });
-        });
+        }).RequirePermission(Permission.TakeOrder);
 
         // --- Open a takeaway order ---
         group.MapPost("/orders", async (CreateTakeawayOrderRequest? body, PosDbContext db, ITenantContext tenantContext, IClock clock, CancellationToken ct) =>
@@ -122,7 +122,7 @@ internal static class OrderEndpoints
             await db.SaveChangesAsync(ct);
 
             return Results.Created($"/orders/{order.Id}", new { orderId = order.Id, status = order.Status.ToString(), dailyNo = order.DailyNo, rowVersion = order.RowVersion });
-        });
+        }).RequirePermission(Permission.TakeOrder);
 
         // --- Add a draft line ---
         group.MapPost("/orders/{orderId:guid}/lines", async (Guid orderId, AddDraftLineRequest body, PosDbContext db, ITenantContext tenantContext, CancellationToken ct) =>
@@ -193,7 +193,7 @@ internal static class OrderEndpoints
             await db.SaveChangesAsync(ct);
 
             return Results.Created($"/orders/{orderId}/lines/{line.Id}", new { lineId = line.Id, sequence = line.Sequence, unitPrice = line.UnitPrice, rowVersion = order.RowVersion });
-        });
+        }).RequirePermission(Permission.TakeOrder);
 
         // --- Update a draft line ---
         group.MapPatch("/orders/{orderId:guid}/lines/{lineId:guid}", async (Guid orderId, Guid lineId, UpdateDraftLineRequest body, PosDbContext db, ITenantContext tenantContext, CancellationToken ct) =>
@@ -246,7 +246,7 @@ internal static class OrderEndpoints
             await db.SaveChangesAsync(ct);
 
             return Results.Ok(new { lineId = line.Id, sequence = line.Sequence, quantity = line.Quantity, unitPrice = line.UnitPrice, rowVersion = order.RowVersion });
-        });
+        }).RequirePermission(Permission.TakeOrder);
 
         // --- Remove (void) a draft line ---
         group.MapDelete("/orders/{orderId:guid}/lines/{lineId:guid}", async (Guid orderId, Guid lineId, int rowVersion, PosDbContext db, CancellationToken ct) =>
@@ -268,7 +268,7 @@ internal static class OrderEndpoints
             await db.SaveChangesAsync(ct);
 
             return Results.Ok(new { rowVersion = order.RowVersion });
-        });
+        }).RequirePermission(Permission.TakeOrder);
 
         // --- Open orders (cashier list) ---
         group.MapGet("/orders/open", async (PosDbContext db, CancellationToken ct) =>
@@ -523,7 +523,7 @@ internal static class OrderEndpoints
                 firedLines = draftLines.Count,
                 rowVersion = order.RowVersion,
             });
-        });
+        }).RequirePermission(Permission.FireOrder);
 
         // --- KDS read: tickets for a station ---
         group.MapGet("/kds/stations/{stationId:guid}/tickets", async (Guid stationId, PosDbContext db, CancellationToken ct) =>
@@ -611,7 +611,7 @@ internal static class OrderEndpoints
             }
 
             return Results.Ok(new { lineId = line.Id, status = line.Status.ToString(), orderId = line.OrderId });
-        });
+        }).RequirePermission(Permission.BumpKitchenLine);
 
         // --- KDS: mark ready (Preparing -> Ready) ---
         group.MapPost("/kds/lines/{lineId:guid}/ready", async (Guid lineId, PosDbContext db, ITenantContext tenantContext, IClock clock, IHubContext<PosHub> hubContext, CancellationToken ct) =>
@@ -662,7 +662,7 @@ internal static class OrderEndpoints
             }
 
             return Results.Ok(new { lineId = line.Id, status = line.Status.ToString(), orderId = line.OrderId });
-        });
+        }).RequirePermission(Permission.BumpKitchenLine);
 
         // --- Waiter: serve (Ready -> Served) ---
         group.MapPost("/orders/{orderId:guid}/lines/{lineId:guid}/serve", async (Guid orderId, Guid lineId, PosDbContext db, ITenantContext tenantContext, IClock clock, IHubContext<PosHub> hubContext, CancellationToken ct) =>
@@ -702,7 +702,7 @@ internal static class OrderEndpoints
             }
 
             return Results.Ok(new { lineId = line.Id, status = line.Status.ToString(), orderId });
-        });
+        }).RequirePermission(Permission.ServeLine);
 
         // --- Void a line (Fired/Preparing/Ready/Served) ---
         group.MapPost("/orders/{orderId:guid}/lines/{lineId:guid}/void", async (Guid orderId, Guid lineId, VoidLineRequest body, PosDbContext db, ITenantContext tenantContext, IClock clock, IHubContext<PosHub> hubContext, CancellationToken ct) =>
@@ -1141,7 +1141,7 @@ internal static class OrderEndpoints
             await stream.FlushAsync(ct);
 
             return Results.Ok(new { orderId, printed = true });
-        });
+        }).RequirePermission(Permission.ReprintReceipt);
 
         return app;
     }

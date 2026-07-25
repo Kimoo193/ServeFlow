@@ -8,4 +8,9 @@ public enum Permission
     ManageFloor,
     ManageStaff,
     ViewHistory,
+    TakeOrder,
+    FireOrder,
+    BumpKitchenLine,
+    ServeLine,
+    ReprintReceipt,
 }

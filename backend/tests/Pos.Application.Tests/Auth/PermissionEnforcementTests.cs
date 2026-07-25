@@ -136,6 +136,25 @@ public sealed class PermissionEnforcementTests(PostgresRlsFixture fixture)
 
         await SeedFullAsync(tenantId, branchId, waiterId, sectionId, tableId, stationId, categoryId, menuItemId);
 
+        // Grant Waiter the operational permissions needed for setup (create, fire, bump, serve)
+        await using (var grantConn = new NpgsqlConnection(fixture.AppConnectionString))
+        {
+            await grantConn.OpenAsync();
+            await using var grantTx = await grantConn.BeginTransactionAsync();
+            await RlsTestSql.SetTenantAsync(grantConn, tenantId);
+            foreach (var perm in new[] { "TakeOrder", "FireOrder", "BumpKitchenLine", "ServeLine" })
+            {
+                await using var cmd = new NpgsqlCommand(
+                    "INSERT INTO role_permissions (id, tenant_id, role, permission) VALUES (@id, @tenantId, @role, @permission)", grantConn);
+                cmd.Parameters.AddWithValue("id", Guid.NewGuid());
+                cmd.Parameters.AddWithValue("tenantId", tenantId);
+                cmd.Parameters.AddWithValue("role", "Waiter");
+                cmd.Parameters.AddWithValue("permission", perm);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            await grantTx.CommitAsync();
+        }
+
         var orderResponse = await client.PostAsync($"/tables/{tableId}/orders", null);
         orderResponse.EnsureSuccessStatusCode();
         var orderBody = await orderResponse.Content.ReadFromJsonAsync<JsonElement>();
@@ -221,6 +240,19 @@ public sealed class PermissionEnforcementTests(PostgresRlsFixture fixture)
             cmd.Parameters.AddWithValue("role", "Cashier");
             cmd.Parameters.AddWithValue("permission", "CloseOrder");
             await cmd.ExecuteNonQueryAsync();
+
+            // Grant Cashier the operational permissions needed for setup (create, fire, bump, serve)
+            foreach (var perm in new[] { "TakeOrder", "FireOrder", "BumpKitchenLine", "ServeLine" })
+            {
+                await using var opCmd = new NpgsqlCommand(
+                    "INSERT INTO role_permissions (id, tenant_id, role, permission) VALUES (@id, @tenantId, @role, @permission)", connection);
+                opCmd.Parameters.AddWithValue("id", Guid.NewGuid());
+                opCmd.Parameters.AddWithValue("tenantId", tenantId);
+                opCmd.Parameters.AddWithValue("role", "Cashier");
+                opCmd.Parameters.AddWithValue("permission", perm);
+                await opCmd.ExecuteNonQueryAsync();
+            }
+
             await tx.CommitAsync();
         }
 
