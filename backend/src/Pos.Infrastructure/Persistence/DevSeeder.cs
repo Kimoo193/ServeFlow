@@ -71,75 +71,67 @@ public static class DevSeeder
         await UpsertDevUser(dbContext, WaiterUserId, "Dev Waiter", Role.Waiter, "waiter", cancellationToken);
         await UpsertDevUser(dbContext, KitchenUserId, "Dev Kitchen", Role.Kitchen, "kitchen", cancellationToken);
 
-        if (!await dbContext.RolePermissions.AnyAsync(rp => rp.TenantId == TenantId, cancellationToken))
-        {
-            var allPermissions = Enum.GetValues<Permission>();
-            foreach (var perm in allPermissions)
-            {
-                dbContext.RolePermissions.Add(new RolePermission
-                {
-                    Id = Guid.NewGuid(),
-                    TenantId = TenantId,
-                    Role = Role.Manager,
-                    Permission = perm,
-                });
-            }
-
-            dbContext.RolePermissions.Add(new RolePermission
-            {
-                Id = Guid.NewGuid(),
-                TenantId = TenantId,
-                Role = Role.Cashier,
-                Permission = Permission.CloseOrder,
-            });
-            dbContext.RolePermissions.Add(new RolePermission
-            {
-                Id = Guid.NewGuid(),
-                TenantId = TenantId,
-                Role = Role.Cashier,
-                Permission = Permission.ViewHistory,
-            });
-            dbContext.RolePermissions.Add(new RolePermission
-            {
-                Id = Guid.NewGuid(),
-                TenantId = TenantId,
-                Role = Role.Cashier,
-                Permission = Permission.ReprintReceipt,
-            });
-
-            dbContext.RolePermissions.Add(new RolePermission
-            {
-                Id = Guid.NewGuid(),
-                TenantId = TenantId,
-                Role = Role.Waiter,
-                Permission = Permission.TakeOrder,
-            });
-            dbContext.RolePermissions.Add(new RolePermission
-            {
-                Id = Guid.NewGuid(),
-                TenantId = TenantId,
-                Role = Role.Waiter,
-                Permission = Permission.FireOrder,
-            });
-            dbContext.RolePermissions.Add(new RolePermission
-            {
-                Id = Guid.NewGuid(),
-                TenantId = TenantId,
-                Role = Role.Waiter,
-                Permission = Permission.ServeLine,
-            });
-
-            dbContext.RolePermissions.Add(new RolePermission
-            {
-                Id = Guid.NewGuid(),
-                TenantId = TenantId,
-                Role = Role.Kitchen,
-                Permission = Permission.BumpKitchenLine,
-            });
-        }
+        await SeedRolePermissions(dbContext, cancellationToken);
 
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The default grant matrix. Owner is absent on purpose — it bypasses permission
+    /// checks entirely (see <c>PermissionAuthorization</c>).
+    /// </summary>
+    private static IEnumerable<(Role Role, Permission Permission)> DefaultGrants()
+    {
+        foreach (var permission in Enum.GetValues<Permission>())
+        {
+            yield return (Role.Manager, permission);
+        }
+
+        yield return (Role.Cashier, Permission.CloseOrder);
+        yield return (Role.Cashier, Permission.ViewHistory);
+        yield return (Role.Cashier, Permission.ReprintReceipt);
+
+        yield return (Role.Waiter, Permission.TakeOrder);
+        yield return (Role.Waiter, Permission.FireOrder);
+        yield return (Role.Waiter, Permission.ServeLine);
+
+        yield return (Role.Kitchen, Permission.BumpKitchenLine);
+    }
+
+    /// <summary>
+    /// Grants any missing (role, permission) pair.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately per-pair rather than "seed only if this tenant has no grants at
+    /// all": that all-or-nothing guard meant a dev database created before a new
+    /// <see cref="Permission"/> was added never received it, leaving the affected
+    /// role 403-ing on endpoints it is supposed to reach. Existing grants are left
+    /// alone, so a permission revoked by hand in dev stays revoked.
+    /// </remarks>
+    private static async Task SeedRolePermissions(
+        PosDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var existing = await dbContext.RolePermissions
+            .Where(rp => rp.TenantId == TenantId)
+            .Select(rp => new { rp.Role, rp.Permission })
+            .ToListAsync(cancellationToken);
+
+        var granted = existing.Select(e => (e.Role, e.Permission)).ToHashSet();
+
+        foreach (var (role, permission) in DefaultGrants())
+        {
+            if (granted.Contains((role, permission))) continue;
+
+            dbContext.RolePermissions.Add(new RolePermission
+            {
+                Id = Guid.NewGuid(),
+                TenantId = TenantId,
+                Role = role,
+                Permission = permission,
+            });
+        }
     }
 
     private static async Task UpsertDevUser(
