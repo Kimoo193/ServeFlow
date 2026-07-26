@@ -18,6 +18,7 @@ public class Order
     public decimal? TaxAmount { get; set; }
     public decimal? DiscountAmount { get; set; }
     public decimal? TotalAmount { get; set; }
+    public string? Currency { get; set; }
 
     public int RowVersion { get; set; }
 

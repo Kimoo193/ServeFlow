@@ -148,6 +148,9 @@ internal static class OrderEndpoints
             if (order.RowVersion != body.RowVersion)
                 return Results.Problem(statusCode: 409, title: "Concurrency conflict", detail: "Stale row version");
 
+            if (body.Quantity is < 1 or > 999)
+                return Results.Problem(statusCode: 400, title: "Invalid quantity", detail: "Quantity must be between 1 and 999.");
+
             var menuItem = await db.MenuItems.FindAsync([body.MenuItemId], ct);
             if (menuItem is null) return Results.Problem(statusCode: 400, title: "Menu item not found");
             if (menuItem.Availability != Availability.Available)
@@ -334,6 +337,9 @@ internal static class OrderEndpoints
 
             var menuItem = await db.MenuItems.FindAsync([line.ItemId], ct);
             if (menuItem is null) return Results.Problem(statusCode: 400, title: "Menu item not found");
+
+            if (body.Quantity is < 1 or > 999)
+                return Results.Problem(statusCode: 400, title: "Invalid quantity", detail: "Quantity must be between 1 and 999.");
 
             line.Quantity = body.Quantity;
             line.UnitPrice = menuItem.Price;
@@ -917,6 +923,13 @@ internal static class OrderEndpoints
             if (body.QuantityDelta <= 0)
                 return Results.Problem(statusCode: 400, title: "Quantity delta must be positive");
 
+            // The bound applies to the delta, not to line.Quantity + delta: this endpoint does not
+            // increment in place, it adds a *new* line whose quantity is the delta (see below).
+            // Guarding the sum would refuse a legitimate +1 on a 999 line, whose new line carries
+            // quantity 1 and satisfies ck_order_lines_quantity perfectly well.
+            if (body.QuantityDelta > 999)
+                return Results.Problem(statusCode: 400, title: "Invalid quantity", detail: "Quantity must be between 1 and 999.");
+
             // The added line would copy this line's allocated bundle share as its price and
             // carry no combo provenance — selling an extra item at the combo discount. Adding
             // another combo is the coherent way to do this.
@@ -1063,6 +1076,7 @@ internal static class OrderEndpoints
 
             // Snapshot onto the order (BR-B-03)
             order.Status = OrderStatus.Completed;
+            order.Currency = branchSettings?.Currency;
             order.SubtotalAmount = bill.Subtotal;
             order.ServiceAmount = bill.ServiceAmount;
             order.TaxAmount = bill.TaxAmount;
@@ -1349,17 +1363,17 @@ internal static class OrderEndpoints
         IReadOnlyList<OrderLineModifier> modifiers,
         BranchSettings? branchSettings)
     {
-        var subtotal = lines
+        var subtotal = decimal.Round(lines
             .Where(l => l.Status != OrderLineStatus.Voided)
             .Sum(l =>
             {
                 var lineTotal = l.UnitPrice * l.Quantity;
                 var modifierSum = modifiers.Where(m => m.OrderLineId == l.Id).Sum(m => m.PriceDelta);
                 return lineTotal + modifierSum;
-            });
+            }), 2, MidpointRounding.AwayFromZero);
 
         var serviceAmount = (branchSettings?.ServiceApplies ?? false)
-            ? subtotal * (branchSettings!.ServiceChargeRate)
+            ? decimal.Round(subtotal * (branchSettings!.ServiceChargeRate), 2, MidpointRounding.AwayFromZero)
             : 0m;
 
         var taxableBase = (branchSettings?.TaxOnService ?? false)
@@ -1367,7 +1381,7 @@ internal static class OrderEndpoints
             : subtotal;
 
         var taxAmount = (branchSettings?.TaxApplies ?? false)
-            ? taxableBase * (branchSettings!.TaxRate)
+            ? decimal.Round(taxableBase * (branchSettings!.TaxRate), 2, MidpointRounding.AwayFromZero)
             : 0m;
 
         var discountAmount = 0m;

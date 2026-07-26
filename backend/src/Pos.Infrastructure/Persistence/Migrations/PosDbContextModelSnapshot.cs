@@ -393,6 +393,11 @@ namespace Pos.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("branch_id");
 
+                    b.Property<string>("Currency")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency");
+
                     b.Property<string>("CustomerName")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
@@ -403,7 +408,7 @@ namespace Pos.Infrastructure.Persistence.Migrations
                         .HasColumnName("daily_no");
 
                     b.Property<decimal?>("DiscountAmount")
-                        .HasColumnType("numeric")
+                        .HasColumnType("numeric(10,2)")
                         .HasColumnName("discount_amount");
 
                     b.Property<string>("OrderType")
@@ -418,7 +423,7 @@ namespace Pos.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<decimal?>("ServiceAmount")
-                        .HasColumnType("numeric")
+                        .HasColumnType("numeric(10,2)")
                         .HasColumnName("service_amount");
 
                     b.Property<string>("Status")
@@ -428,7 +433,7 @@ namespace Pos.Infrastructure.Persistence.Migrations
                         .HasColumnName("status");
 
                     b.Property<decimal?>("SubtotalAmount")
-                        .HasColumnType("numeric")
+                        .HasColumnType("numeric(10,2)")
                         .HasColumnName("subtotal_amount");
 
                     b.Property<Guid?>("TableId")
@@ -436,7 +441,7 @@ namespace Pos.Infrastructure.Persistence.Migrations
                         .HasColumnName("table_id");
 
                     b.Property<decimal?>("TaxAmount")
-                        .HasColumnType("numeric")
+                        .HasColumnType("numeric(10,2)")
                         .HasColumnName("tax_amount");
 
                     b.Property<Guid>("TenantId")
@@ -444,7 +449,7 @@ namespace Pos.Infrastructure.Persistence.Migrations
                         .HasColumnName("tenant_id");
 
                     b.Property<decimal?>("TotalAmount")
-                        .HasColumnType("numeric")
+                        .HasColumnType("numeric(10,2)")
                         .HasColumnName("total_amount");
 
                     b.Property<Guid>("WaiterId")
