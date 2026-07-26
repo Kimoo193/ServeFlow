@@ -92,12 +92,27 @@ rather than improving it.
 **Do these before writing any other code.** All four are small; the first two are irreversible
 if delayed.
 
+> **✅ COMPLETE — `c955086`.** Tests: 123 Application + 18 Domain, all green.
+> ⚠️ **The migration `MoneyPrecisionAndQuantityBounds` is created but NOT YET APPLIED** to any
+> database — CLAUDE.md requires migration SQL be approved before it runs. Dev data was checked
+> against the new CHECK constraint in advance: 14 `order_lines`, quantities 1–5, zero violations,
+> so it will apply cleanly. The five `numeric(18,6) → numeric(10,2)` alters repair the existing
+> unrounded rows implicitly, since Postgres rounds half-away-from-zero on the cast — the same
+> mode as the C# `MidpointRounding.AwayFromZero`.
+>
+> **Review note worth keeping:** the one bug found in this slice came from the *brief*, not the
+> implementer — it specified the quantity bound as `line.Quantity + delta` when
+> `increase-quantity` actually adds a new line carrying the delta. The delegated test asserted
+> the same misunderstanding, so **the suite would have gone green on wrong behaviour**. A green
+> gate proves internal consistency, not correctness; only reading the diff against what the code
+> actually does catches this class of defect.
+
 | # | Item | Evidence | Effort | Status |
 |---|---|---|---|---|
-| 0.1 | **Round money at close and constrain the columns.** The five order money columns default to `numeric(18,6)` (no `HasColumnType`) while every other money column in the schema is explicitly `numeric(10,2)`. `ComputeBill` never rounds. Every order closed from now on stores a total a later migration cannot unambiguously repair — you will not know whether `10.5588` should be `10.56` or whether a reprint means the customer paid something else. Round the *composed* values (`MidpointRounding.AwayFromZero`, 2dp), not per-component, or subtotal + service + tax will not equal total. | `OrderConfiguration.cs:40-48`, `OrderEndpoints.cs:1347-1378`, contrast `OrderLineConfiguration.cs:28-30` · found independently by **architecture (C3)** and **security (M2)** | S | ☐ |
-| 0.2 | **Snapshot the currency onto the order.** `BranchSettings.Currency` is live-referenced. Changing it silently reinterprets every historical total — a direct violation of golden rule 6, in the same blast radius as 0.1 and fixable in the same migration. | `BranchSettings.cs:11` | XS | ☐ |
-| 0.3 | **Reject non-positive quantities.** `Quantity = body.Quantity` is written unbounded on both add-line and patch-line. No endpoint guard, no `CHECK` constraint. A user holding `TakeOrder` posts `quantity: -20` on a $15 item; it walks Draft→Fired→Served through the normal endpoints (none inspect quantity), passes the close check, and snapshots a subtotal $300 lower with service and tax scaled to match — leaving an `OrderEvent` trail that looks entirely normal. `quantity: 0` is the quiet variant: cooked, served, billed at zero. **This is the cheapest fix in this document and the shortest path to till fraud in the system.** | `OrderEndpoints.cs:168`, `:338`, DTO `:1387`; column `20260721184717_Slice3DiningArea.cs:122` · **security (C1)** | XS | ☐ |
-| 0.4 | **Add a money test with real rates.** Every existing money test uses tax 0.05 / service 0.05 on round prices, so totals land exactly on cents *by construction* — which is precisely why `10.5588` shipped. Add one with `tax_rate = 0.14`, `service = 0.12`, `tax_on_service = true`. | `CloseAndReceiptTests.cs:26-28`, `CashierTests.cs:23-25` | XS | ☐ |
+| 0.1 | **Round money at close and constrain the columns.** The five order money columns default to `numeric(18,6)` (no `HasColumnType`) while every other money column in the schema is explicitly `numeric(10,2)`. `ComputeBill` never rounds. Every order closed from now on stores a total a later migration cannot unambiguously repair — you will not know whether `10.5588` should be `10.56` or whether a reprint means the customer paid something else. Round the *composed* values (`MidpointRounding.AwayFromZero`, 2dp), not per-component, or subtotal + service + tax will not equal total. | `OrderConfiguration.cs:40-48`, `OrderEndpoints.cs:1347-1378`, contrast `OrderLineConfiguration.cs:28-30` · found independently by **architecture (C3)** and **security (M2)** | S | ☑ `c955086` |
+| 0.2 | **Snapshot the currency onto the order.** `BranchSettings.Currency` is live-referenced. Changing it silently reinterprets every historical total — a direct violation of golden rule 6, in the same blast radius as 0.1 and fixable in the same migration. | `BranchSettings.cs:11` | XS | ☑ `c955086` |
+| 0.3 | **Reject non-positive quantities.** `Quantity = body.Quantity` is written unbounded on both add-line and patch-line. No endpoint guard, no `CHECK` constraint. A user holding `TakeOrder` posts `quantity: -20` on a $15 item; it walks Draft→Fired→Served through the normal endpoints (none inspect quantity), passes the close check, and snapshots a subtotal $300 lower with service and tax scaled to match — leaving an `OrderEvent` trail that looks entirely normal. `quantity: 0` is the quiet variant: cooked, served, billed at zero. **This is the cheapest fix in this document and the shortest path to till fraud in the system.** | `OrderEndpoints.cs:168`, `:338`, DTO `:1387`; column `20260721184717_Slice3DiningArea.cs:122` · **security (C1)** | XS | ☑ `c955086` |
+| 0.4 | **Add a money test with real rates.** Every existing money test uses tax 0.05 / service 0.05 on round prices, so totals land exactly on cents *by construction* — which is precisely why `10.5588` shipped. Add one with `tax_rate = 0.14`, `service = 0.12`, `tax_on_service = true`. | `CloseAndReceiptTests.cs:26-28`, `CashierTests.cs:23-25` | XS | ☑ `c955086` |
 
 > **Why 0.1 before everything else:** it is the only finding in this report where *waiting
 > actively destroys information*. Every other item is a defect that stays the same size.
