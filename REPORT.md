@@ -93,12 +93,22 @@ rather than improving it.
 if delayed.
 
 > **✅ COMPLETE — `c955086`.** Tests: 123 Application + 18 Domain, all green.
-> ⚠️ **The migration `MoneyPrecisionAndQuantityBounds` is created but NOT YET APPLIED** to any
-> database — CLAUDE.md requires migration SQL be approved before it runs. Dev data was checked
-> against the new CHECK constraint in advance: 14 `order_lines`, quantities 1–5, zero violations,
-> so it will apply cleanly. The five `numeric(18,6) → numeric(10,2)` alters repair the existing
-> unrounded rows implicitly, since Postgres rounds half-away-from-zero on the cast — the same
-> mode as the C# `MidpointRounding.AwayFromZero`.
+> **Migration `MoneyPrecisionAndQuantityBounds` applied to the dev DB and verified.**
+>
+> The three closed orders carrying unpayable totals were repaired by the column cast itself
+> (Postgres rounds half-away-from-zero, matching the C# `MidpointRounding.AwayFromZero`):
+>
+> | before | after |
+> |---|---|
+> | `58.3110000000` | `58.31` |
+> | `50.400000` | `50.40` |
+> | `10.558800` | **`10.56`** |
+>
+> That last value is exactly what `ROADMAP.md:158-169` recorded as the *printed receipt* figure
+> while the database held `10.5588` — the two sources of truth are now one. Post-migration check
+> confirms `subtotal + service + tax = total` on every row, all five columns are `numeric(10,2)`,
+> `currency` is `varchar(3)` and correctly NULL on historical rows (not backfilled), and
+> `ck_order_lines_quantity` is present.
 >
 > **Review note worth keeping:** the one bug found in this slice came from the *brief*, not the
 > implementer — it specified the quantity bound as `line.Quantity + delta` when
