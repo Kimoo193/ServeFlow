@@ -70,5 +70,10 @@ public sealed class OrderLineConfiguration : IEntityTypeConfiguration<OrderLine>
 
         // Serves the idempotent-replay lookup on combo expansion.
         builder.HasIndex(ol => new { ol.TenantId, ol.ComboInstanceId });
+
+        // Serves OrderEndpoints.cs:658-660 (/kds/stations/{stationId}/tickets) —
+        // filters active lines by station and orders by sequence.
+        builder.HasIndex(ol => new { ol.TenantId, ol.StationId, ol.Sequence })
+            .HasFilter("status IN ('Fired','Preparing')");
     }
 }

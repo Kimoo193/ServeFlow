@@ -468,6 +468,11 @@ namespace Pos.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("WaiterId");
 
+                    b.HasIndex("TenantId", "DailyNo")
+                        .HasFilter("status IN ('Open','InProgress')");
+
+                    b.HasIndex("TenantId", "BranchId", "OrderType");
+
                     b.ToTable("orders", (string)null);
                 });
 
@@ -521,6 +526,9 @@ namespace Pos.Infrastructure.Persistence.Migrations
                     b.HasIndex("OrderLineId");
 
                     b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "EventType", "PerformedAt")
+                        .IsDescending(false, false, true);
 
                     b.ToTable("order_events", (string)null);
                 });
@@ -594,6 +602,9 @@ namespace Pos.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId");
 
                     b.HasIndex("TenantId", "ComboInstanceId");
+
+                    b.HasIndex("TenantId", "StationId", "Sequence")
+                        .HasFilter("status IN ('Fired','Preparing')");
 
                     b.ToTable("order_lines", (string)null);
                 });

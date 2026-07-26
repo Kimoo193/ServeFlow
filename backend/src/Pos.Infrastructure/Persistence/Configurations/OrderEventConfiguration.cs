@@ -56,5 +56,10 @@ public sealed class OrderEventConfiguration : IEntityTypeConfiguration<OrderEven
         builder.HasIndex(oe => oe.TenantId);
         builder.HasIndex(oe => oe.OrderId);
         builder.HasIndex(oe => oe.OrderLineId);
+
+        // Serves DashboardEndpoints.cs:18 (/dashboard/summary) and OrderEndpoints.cs:458-460
+        // (/orders/history) — both filter on EventType and order by PerformedAt descending.
+        builder.HasIndex(oe => new { oe.TenantId, oe.EventType, oe.PerformedAt })
+            .IsDescending(false, false, true);
     }
 }

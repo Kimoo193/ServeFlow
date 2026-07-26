@@ -93,5 +93,13 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasIndex(o => o.TableId)
             .IsUnique()
             .HasFilter("table_id IS NOT NULL AND status IN ('Open', 'InProgress')");
+
+        // Serves OrderEndpoints.cs:403-406 (/orders/open) — cashier's open-orders list
+        // filtered to AcceptingChanges (Open/InProgress) and ordered by DailyNo.
+        builder.HasIndex(o => new { o.TenantId, o.DailyNo })
+            .HasFilter("status IN ('Open','InProgress')");
+
+        // Serves OrderEndpoints.cs:93-94 (takeaway dailyNo COUNT).
+        builder.HasIndex(o => new { o.TenantId, o.BranchId, o.OrderType });
     }
 }
