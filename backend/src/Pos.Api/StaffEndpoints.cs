@@ -24,6 +24,12 @@ internal static class StaffEndpoints
                     title: "Invalid role",
                     detail: $"'{body.Role}' is not a valid role. Valid roles: {string.Join(", ", Enum.GetNames<Role>())}.");
 
+            if (role == Role.Owner && tenantContext.Role != Role.Owner)
+                return Results.Problem(
+                    statusCode: 403,
+                    title: "Insufficient permissions",
+                    detail: "Only an Owner may grant the Owner role.");
+
             var user = new User
             {
                 Id = Guid.NewGuid(),
@@ -37,7 +43,7 @@ internal static class StaffEndpoints
             return Results.Created($"/users/{user.Id}", new { user.Id, user.DisplayName, Role = user.Role.ToString(), user.IsActive });
         }).RequirePermission(Permission.ManageStaff);
 
-        group.MapPut("/users/{id:guid}", async (Guid id, UpdateUserRequest body, PosDbContext db, CancellationToken ct) =>
+        group.MapPut("/users/{id:guid}", async (Guid id, UpdateUserRequest body, PosDbContext db, ITenantContext tenantContext, CancellationToken ct) =>
         {
             var user = await db.Users.FindAsync([id], ct);
             if (user is null) return Results.NotFound();
@@ -47,6 +53,29 @@ internal static class StaffEndpoints
                     statusCode: 400,
                     title: "Invalid role",
                     detail: $"'{body.Role}' is not a valid role. Valid roles: {string.Join(", ", Enum.GetNames<Role>())}.");
+
+            if (role == Role.Owner && tenantContext.Role != Role.Owner)
+                return Results.Problem(
+                    statusCode: 403,
+                    title: "Insufficient permissions",
+                    detail: "Only an Owner may grant the Owner role.");
+
+            if (id == tenantContext.UserId && (role != user.Role || body.IsActive != user.IsActive))
+                return Results.Problem(
+                    statusCode: 403,
+                    title: "Insufficient permissions",
+                    detail: "You cannot change your own role or active status.");
+
+            if (user.Role == Role.Owner && user.IsActive && (role != Role.Owner || !body.IsActive))
+            {
+                var otherActiveOwners = await db.Users.CountAsync(
+                    u => u.Id != user.Id && u.Role == Role.Owner && u.IsActive, ct);
+                if (otherActiveOwners == 0)
+                    return Results.Problem(
+                        statusCode: 409,
+                        title: "Last Owner",
+                        detail: "The tenant must keep at least one active Owner.");
+            }
 
             user.DisplayName = body.DisplayName;
             user.Role = role;
@@ -86,6 +115,12 @@ internal static class StaffEndpoints
                     title: "Invalid role",
                     detail: $"'{role}' is not a valid role. Valid roles: {string.Join(", ", Enum.GetNames<Role>())}.");
 
+            if (parsedRole == Role.Owner)
+                return Results.Problem(
+                    statusCode: 403,
+                    title: "Insufficient permissions",
+                    detail: "The Owner role's permissions are fixed.");
+
             var invalidPermissions = new List<string>();
             var parsedPermissions = new HashSet<Permission>();
             foreach (var p in body.Permissions)
@@ -101,6 +136,15 @@ internal static class StaffEndpoints
                     statusCode: 400,
                     title: "Invalid permission(s)",
                     detail: $"Invalid: {string.Join(", ", invalidPermissions)}. Valid permissions: {string.Join(", ", Enum.GetNames<Permission>())}.");
+
+            foreach (var perm in parsedPermissions)
+            {
+                if (!await PermissionAuthorization.HasPermissionAsync(db, tenantContext, perm, ct))
+                    return Results.Problem(
+                        statusCode: 403,
+                        title: "Insufficient permissions",
+                        detail: $"Cannot grant {perm}: you do not hold it.");
+            }
 
             var existing = await db.RolePermissions
                 .Where(rp => rp.Role == parsedRole)
