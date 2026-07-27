@@ -32,3 +32,21 @@ Thumbs.db
 # Deliberately NOT a bare `package-lock.json` — frontend/package-lock.json is
 # tracked and must stay that way.
 /backend/package-lock.json
+
+# Environment files — may contain secrets, connection strings, or API keys that
+# must never be committed. Scoped to common naming conventions used by dotenv
+# runtimes and orchestration tools.
+.env
+.env.*
+
+# Private key material and TLS certificates. A .pfx found in the project tree
+# is almost certainly a developer mistake; keys go in a vault or on the host
+# filesystem outside the repo.
+*.pfx
+*.key
+
+# Local-only config overrides saved by individual developers for their own
+# machine (e.g. local Postgres port remapping). These are never tracked —
+# the documented dev defaults live in appsettings.Development.json, which IS
+# tracked and kept free of personal secrets.
+appsettings.*.Local.json

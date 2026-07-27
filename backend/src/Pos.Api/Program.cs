@@ -3,6 +3,7 @@ using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -201,9 +202,41 @@ if (app.Environment.IsDevelopment())
 // TenantSessionMiddleware and the endpoint handlers below.
 app.UseExceptionHandler();
 
-app.UseRateLimiter();
+// Forwarded headers run FIRST, before anything that reads the scheme or the client IP.
+//
+// Order is load-bearing against UseHttpsRedirection below. Behind a TLS-terminating proxy the
+// request reaches us over plain HTTP carrying X-Forwarded-Proto: https. If this middleware ran
+// *after* the redirect, Request.Scheme would still be "http" at that point, the redirect would
+// fire, the proxy would forward over HTTP again — an infinite redirect loop, in production only.
+// Every test runs in Development where the redirect is skipped, so no gate would catch it.
+//
+// It also must precede the rate limiter so RemoteIpAddress is the real client rather than the
+// proxy, otherwise every terminal in the venue shares one login bucket.
+//
+// Deployment behind a reverse proxy must ALSO configure KnownProxies / KnownNetworks on
+// ForwardedHeadersOptions — ASP.NET deliberately ignores forwarded headers from untrusted
+// sources, and that secure default must not be disabled here.
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
 
+// HSTS and HTTPS redirection must NOT run in Development: the local Angular/Flutter
+// frontends talk plain HTTP on localhost, and tests use the in-memory host (redirecting
+// would produce 307s and fail much of the suite). In any other environment we enforce
+// TLS because bearer tokens must never travel over cleartext.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+    app.UseHttpsRedirection();
+}
+
+// CORS must run before the rate limiter: a 429 response generated without an
+// Access-Control-Allow-Origin header is opaque to the browser, making the frontend's
+// `case 429:` branch dead code cross-origin.
 app.UseCors(CorsPolicyName);
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
