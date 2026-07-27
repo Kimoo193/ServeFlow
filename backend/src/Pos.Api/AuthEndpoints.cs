@@ -84,7 +84,10 @@ internal static class AuthEndpoints
             };
 
             var expires = DateTime.UtcNow.AddHours(8);
-            var token = new JwtSecurityToken(claims: claims, expires: expires, signingCredentials: credentials);
+            var token = new JwtSecurityToken(
+                issuer: configuration["Jwt:Issuer"],
+                audience: configuration["Jwt:Audience"],
+                claims: claims, expires: expires, signingCredentials: credentials);
             var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
 
             return Results.Ok(new LoginResponse(

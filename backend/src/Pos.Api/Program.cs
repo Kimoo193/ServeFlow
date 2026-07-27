@@ -52,13 +52,19 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
         // testing GET /me. Disabling the map makes every claim round-trip verbatim.
         options.MapInboundClaims = false;
 
+        var issuer = configuration["Jwt:Issuer"];
+        var audience = configuration["Jwt:Audience"];
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = false,
-            ValidateAudience = false,
+            ValidateIssuer = true,
+            ValidIssuer = issuer,
+            ValidateAudience = true,
+            ValidAudience = audience,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)),
+            ClockSkew = TimeSpan.FromSeconds(30),
         };
 
         options.Events = new JwtBearerEvents
@@ -123,6 +129,16 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+// Fail-loud startup guard: Dev:EnableTokenMint outside Development is a misconfiguration that
+// exposes /dev/token. Stop instead of running silently compromised.
+if (app.Configuration.GetValue<bool>("Dev:EnableTokenMint") && !app.Environment.IsDevelopment())
+{
+    throw new InvalidOperationException(
+        "Dev:EnableTokenMint is true but the environment is not Development. " +
+        "The /dev/token endpoint mints unrestricted tokens and must never be reachable in a non-Development environment. " +
+        "Either remove Dev:EnableTokenMint from config or run in Development.");
+}
+
 if (app.Environment.IsDevelopment())
 {
     using (var scope = app.Services.CreateScope())
@@ -133,44 +149,52 @@ if (app.Environment.IsDevelopment())
 
     // Development-only: KimooKit will issue real tokens later. This mints tokens with
     // the same claim shape so local runs and tests can authenticate meanwhile.
-    app.MapPost("/dev/token", (DevTokenRequest? request, IConfiguration configuration) =>
+    // Double-gated: BOTH IsDevelopment() AND Dev:EnableTokenMint must be true.
+    // Flipping ASPNETCORE_ENVIRONMENT alone should never expose this endpoint.
+    if (app.Configuration.GetValue<bool>("Dev:EnableTokenMint"))
     {
-        var tenantId = request?.TenantId ?? DevSeeder.TenantId;
-        var branchId = request?.BranchId ?? DevSeeder.BranchId;
-        var userId = request?.UserId ?? DevSeeder.OwnerUserId;
-        var roleValue = request?.Role ?? nameof(Role.Owner);
-
-        // Reject an invalid role at mint time rather than only failing later, differently,
-        // whichever endpoint happens to read .Role first.
-        if (!Enum.TryParse<Role>(roleValue, ignoreCase: true, out var role) || !Enum.IsDefined(role))
+        app.MapPost("/dev/token", (DevTokenRequest? request, IConfiguration configuration) =>
         {
-            return Results.Problem(
-                statusCode: StatusCodes.Status400BadRequest,
-                title: "Invalid role",
-                detail: $"'{roleValue}' is not a valid role. Valid roles: {string.Join(", ", Enum.GetNames<Role>())}.");
-        }
+            var tenantId = request?.TenantId ?? DevSeeder.TenantId;
+            var branchId = request?.BranchId ?? DevSeeder.BranchId;
+            var userId = request?.UserId ?? DevSeeder.OwnerUserId;
+            var roleValue = request?.Role ?? nameof(Role.Owner);
 
-        var signingKey = configuration["Jwt:SigningKey"]
-            ?? throw new InvalidOperationException("Jwt:SigningKey is not configured.");
+            // Reject an invalid role at mint time rather than only failing later, differently,
+            // whichever endpoint happens to read .Role first.
+            if (!Enum.TryParse<Role>(roleValue, ignoreCase: true, out var role) || !Enum.IsDefined(role))
+            {
+                return Results.Problem(
+                    statusCode: StatusCodes.Status400BadRequest,
+                    title: "Invalid role",
+                    detail: $"'{roleValue}' is not a valid role. Valid roles: {string.Join(", ", Enum.GetNames<Role>())}.");
+            }
 
-        var credentials = new SigningCredentials(
-            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)),
-            SecurityAlgorithms.HmacSha256);
+            var signingKey = configuration["Jwt:SigningKey"]
+                ?? throw new InvalidOperationException("Jwt:SigningKey is not configured.");
 
-        var claims = new[]
-        {
-            new Claim(JwtTenantContext.TenantIdClaim, tenantId.ToString()),
-            new Claim(JwtTenantContext.BranchIdClaim, branchId.ToString()),
-            new Claim(JwtTenantContext.UserIdClaim, userId.ToString()),
-            new Claim(JwtTenantContext.RoleClaim, role.ToString()),
-        };
+            var credentials = new SigningCredentials(
+                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)),
+                SecurityAlgorithms.HmacSha256);
 
-        var expires = DateTime.UtcNow.AddHours(8);
-        var token = new JwtSecurityToken(claims: claims, expires: expires, signingCredentials: credentials);
-        var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
+            var claims = new[]
+            {
+                new Claim(JwtTenantContext.TenantIdClaim, tenantId.ToString()),
+                new Claim(JwtTenantContext.BranchIdClaim, branchId.ToString()),
+                new Claim(JwtTenantContext.UserIdClaim, userId.ToString()),
+                new Claim(JwtTenantContext.RoleClaim, role.ToString()),
+            };
 
-        return Results.Ok(new DevTokenResponse(accessToken, expires));
-    });
+            var expires = DateTime.UtcNow.AddHours(8);
+            var token = new JwtSecurityToken(
+                issuer: configuration["Jwt:Issuer"],
+                audience: configuration["Jwt:Audience"],
+                claims: claims, expires: expires, signingCredentials: credentials);
+            var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
+
+            return Results.Ok(new DevTokenResponse(accessToken, expires));
+        });
+    }
 }
 
 // Registered first so it wraps every subsequent middleware, including
