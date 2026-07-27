@@ -506,6 +506,20 @@ public sealed class FireBatchTests(PostgresRlsFixture fixture)
             await cmd.ExecuteNonQueryAsync();
         }
 
+        // The KDS board read is gated on BumpKitchenLine. These tests read it only to assert
+        // fire-batch grouping, but the grant is still required — matching LineStatusTests,
+        // which already pairs the board read with BumpKitchenLine. This file simply predates
+        // the gate.
+        await using (var cmd = new NpgsqlCommand(
+            "INSERT INTO role_permissions (id, tenant_id, role, permission) VALUES (@id, @tenantId, @role, @permission)", connection))
+        {
+            cmd.Parameters.AddWithValue("id", Guid.NewGuid());
+            cmd.Parameters.AddWithValue("tenantId", tenantId);
+            cmd.Parameters.AddWithValue("role", "Waiter");
+            cmd.Parameters.AddWithValue("permission", "BumpKitchenLine");
+            await cmd.ExecuteNonQueryAsync();
+        }
+
         await using (var cmd = new NpgsqlCommand(
             "INSERT INTO sections (id, tenant_id, branch_id, name) VALUES (@id, @tenantId, @branchId, @name)", connection))
         {

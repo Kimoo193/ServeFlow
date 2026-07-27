@@ -279,6 +279,10 @@ public sealed class ComboOrderingTests(PostgresRlsFixture fixture)
         using var client = factory.CreateClient();
         await AuthenticateAsync(client, world, "Waiter");
         await SeedAsync(world);
+        // /bill-preview is gated on CloseOrder; this test reads it only to assert the subtotal.
+        // Matches Bill_preview_subtotal_equals_the_bundle_price_and_labels_the_lines, which
+        // already granted it — this test simply predated the gate.
+        await GrantAsync(world.TenantId, "Waiter", "CloseOrder");
 
         var (orderId, rowVersion) = await OpenOrderAsync(client, world);
         var added = await client.PostAsJsonAsync($"/orders/{orderId}/combos", new { comboId = world.ComboId, rowVersion });

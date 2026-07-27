@@ -267,6 +267,13 @@ internal static class OrderEndpoints
                         detail: $"'{component.Name}' is OutOfStock or Hidden.");
             }
 
+            var totalUnits = comboItems.Sum(ci => ci.Quantity);
+            if (totalUnits > 50)
+                return Results.Problem(
+                    statusCode: 400,
+                    title: "Combo too large",
+                    detail: $"A combo may not expand into more than 50 lines. This combo would produce {totalUnits}.");
+
             // One quantity-1 line per unit: see ComboAllocation for why quantity cannot be > 1.
             var units = comboItems
                 .OrderBy(ci => menuItems[ci.ItemId].Name)
@@ -448,7 +455,7 @@ internal static class OrderEndpoints
             });
 
             return Results.Ok(result);
-        });
+        }).RequireAnyPermission(Permission.CloseOrder, Permission.TakeOrder);
 
         // --- Order history (read-only manager view) ---
         group.MapGet("/orders/history", async (int? limit, PosDbContext db, CancellationToken ct) =>
@@ -563,7 +570,7 @@ internal static class OrderEndpoints
                 rowVersion = order.RowVersion,
                 lines = linesDto,
             });
-        });
+        }).RequireAnyPermission(Permission.TakeOrder, Permission.CloseOrder, Permission.ViewHistory);
 
         // --- Fire endpoint ---
         group.MapPost("/orders/{orderId:guid}/fire", async (Guid orderId, FireBatchRequest body, PosDbContext db, ITenantContext tenantContext, IClock clock, IHubContext<PosHub> hubContext, CancellationToken ct) =>
@@ -687,7 +694,11 @@ internal static class OrderEndpoints
                 });
 
             return Results.Ok(tickets);
-        });
+            // Gated on BumpKitchenLine: anyone who may bump a line may read the board,
+            // avoiding a new ViewKitchen permission that would need seeding and a matrix migration.
+            // Kitchen holds only BumpKitchenLine in the seeded matrix — this is the gate that
+            // stops a kitchen display reading receipts and bills.
+        }).RequirePermission(Permission.BumpKitchenLine);
 
         // --- KDS: start preparing (Fired -> Preparing) ---
         group.MapPost("/kds/lines/{lineId:guid}/start-preparing", async (Guid lineId, PosDbContext db, ITenantContext tenantContext, IClock clock, IHubContext<PosHub> hubContext, CancellationToken ct) =>
@@ -1188,7 +1199,7 @@ internal static class OrderEndpoints
                 discountAmount = order.DiscountAmount,
                 total = order.TotalAmount,
             });
-        });
+        }).RequireAnyPermission(Permission.ReprintReceipt, Permission.CloseOrder);
 
         // --- Bill preview (non-mutating cashier read) ---
         group.MapGet("/orders/{orderId:guid}/bill-preview", async (Guid orderId, PosDbContext db, CancellationToken ct) =>
@@ -1251,7 +1262,7 @@ internal static class OrderEndpoints
                 total = bill.Total,
                 rowVersion = order.RowVersion,
             });
-        });
+        }).RequirePermission(Permission.CloseOrder);
 
         // --- Print receipt to ESC/POS network printer ---
         group.MapPost("/orders/{orderId:guid}/receipt/print", async (Guid orderId, PosDbContext db, CancellationToken ct) =>

@@ -289,6 +289,9 @@ internal static class MenuEndpoints
         // --- Combo-Item attachments ---
         group.MapPost("/combos/{comboId:guid}/items/{itemId:guid}", async (Guid comboId, Guid itemId, AttachComboItemRequest body, PosDbContext db, ITenantContext tenantContext, CancellationToken ct) =>
         {
+            if (body.Quantity is < 1 or > 99)
+                return Results.Problem(statusCode: 400, title: "Invalid quantity", detail: "Combo component quantity must be between 1 and 99.");
+
             var exists = await db.ComboItems.AnyAsync(ci => ci.ComboId == comboId && ci.ItemId == itemId, ct);
             if (exists) return Results.Conflict();
             var ci = new ComboItem { Id = Guid.NewGuid(), TenantId = tenantContext.TenantId, ComboId = comboId, ItemId = itemId, Quantity = body.Quantity };

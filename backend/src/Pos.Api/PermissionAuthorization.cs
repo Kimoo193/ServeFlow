@@ -31,4 +31,24 @@ internal static class PermissionAuthorization
             return await next(context);
         });
     }
+
+    public static RouteHandlerBuilder RequireAnyPermission(this RouteHandlerBuilder b, params Permission[] permissions)
+    {
+        return b.AddEndpointFilter(async (context, next) =>
+        {
+            var db = context.HttpContext.RequestServices.GetRequiredService<PosDbContext>();
+            var tenantContext = context.HttpContext.RequestServices.GetRequiredService<ITenantContext>();
+
+            foreach (var p in permissions)
+            {
+                if (await HasPermissionAsync(db, tenantContext, p, context.HttpContext.RequestAborted))
+                    return await next(context);
+            }
+
+            return Results.Problem(
+                statusCode: 403,
+                title: "Insufficient permissions",
+                detail: $"Requires one of: {string.Join(", ", permissions)} permissions.");
+        });
+    }
 }
